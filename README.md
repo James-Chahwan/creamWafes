@@ -26,6 +26,8 @@ It's deliberately *not* a "type a sentence, get a song" app. The AI is a sound s
 > refund for using your shit ass services you fucking cunts, also this works on 6gb of vram card a
 > fucking 1660 super you fucking shit cunts needs data centres to produce shit fuck i hate you, do better
 
+https://github.com/user-attachments/assets/9f2f6444-fc62-4370-98d1-693b6cf438ba
+
 ### The breakdown (October 2026)
 
 | Service | What it does | Where it runs | Notes |
