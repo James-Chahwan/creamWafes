@@ -105,10 +105,12 @@ w.extend_to(take, take.end + 4 * w.project.bar_seconds)
 task, params, _ = SENT[-1]
 check(task == "repaint" and params["chunk_mask_mode"] == "explicit" and params["repainting_start"] < take.end,
       "extend = explicit-mask repaint starting before the end")
+target = take.end + 4 * w.project.bar_seconds
+n = len(w.project.tracks)
 deliver(w); activate(w)
-new = w.project.tracks[-1]
-check("→ bar" in new.name and abs(new.clips[0].end - (take.end + 4 * w.project.bar_seconds)) <= w.project.bar_seconds,
-      f"extended take trimmed to the target ({new.name})")
+new = take
+check(len(w.project.tracks) == n and not take.muted and abs(take.end - target) <= 0.05,
+      f"extending a track continues it in place, up to the target ({take.end:.2f}s ≈ {target:.2f}s)")
 
 w.state.selection = (w.project.bar_seconds * 2, w.project.bar_seconds * 4)
 w.redo_bars(new)

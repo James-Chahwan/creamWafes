@@ -84,7 +84,11 @@ class GenerateMixin:
         gen = {"mode": "repaint", "kind": base.kind if base else "song", "prompt": prompt, "lyrics": lyrics,
                "steps": 32, "src": str(wav), "span": [start, gen_end], "trim_to": target, "inherit": single}
         name = f"{base.name if base else 'song'} → bar {round(target / bar) + 1}"
-        self._submit_repaint(gen, name, sources)
+        if single:  # one layer: the continuation goes straight onto that layer
+            gen.update(splice=[start, target])
+            self._submit_repaint(gen, name, [], into=base)
+        else:
+            self._submit_repaint(gen, name, sources)
 
     @staticmethod
     def _last_loud_bar_end(audio, bar: float) -> float:
@@ -113,7 +117,11 @@ class GenerateMixin:
                "prompt": prompt or self._layer_prompt(base),
                "lyrics": (base.gen.get("lyrics") if base else None) or "[Instrumental]",
                "steps": 32, "src": str(wav), "span": list(self.state.selection), "inherit": single}
-        self._submit_repaint(gen, f"{base.name if base else 'song'} (bars {a}–{b - 1} redone)", sources)
+        if single:  # one layer: the new bars go right back into that layer, in that spot
+            gen.update(splice=list(self.state.selection))
+            self._submit_repaint(gen, f"{base.name} bars {a}–{b - 1}", [], into=base)
+        else:
+            self._submit_repaint(gen, f"song (bars {a}–{b - 1} redone)", sources)
 
     @staticmethod
     def _layer_prompt(track: Track | None) -> str:
@@ -197,14 +205,15 @@ class GenerateMixin:
         self._submit("separate", {"src": str(wav), "stem": stem, "duration": len(audio) / SR}, gen,
                      name=f"{track.name} · {label}", mute=[track])
 
-    def _submit_repaint(self, gen: dict, name: str, mute: list[Track]) -> None:
+    def _submit_repaint(self, gen: dict, name: str, mute: list[Track], into: Track | None = None) -> None:
         params = self._base_params(gen["prompt"], gen["lyrics"], gen["steps"], -1)
         params.update(src_audio=gen["src"], repainting_start=gen["span"][0], repainting_end=gen["span"][1],
                       duration=gen["span"][1], chunk_mask_mode="explicit")  # "auto" ignores the region → quiet
-        self._submit("repaint", params, gen, name=name, mute=mute)
+        self._submit("repaint", params, gen, name=name, mute=mute, into=into)
 
     def _submit(self, task: str, params: dict, gen: dict, name: str, mute: list[Track],
-                pads: list[int] | None = None) -> None:
+                pads: list[int] | None = None, into: Track | None = None) -> None:
+        """``into``: the result goes into this track (gen["splice"] = [start, end]) instead of a new one."""
         if not self.engine.is_ready:
             QMessageBox.information(self, "Engine not ready", "The engine is still loading — try again in a moment.")
             return
@@ -213,7 +222,8 @@ class GenerateMixin:
         log.info("generate %s %s: %s", job_id, task, {k: v for k, v in params.items() if k != "lyrics"})
         job = {"task": task, "gen": gen, "name": name, "kind": gen["kind"], "prompt": gen.get("prompt", ""),
                "mute": mute, "started": time.time(), "label": name, "progress": 0.0, "row": None,
-               "pads": pads}  # pad-bound jobs show progress on those pads, not as a timeline row
+               "pads": pads,  # pad-bound jobs show progress on those pads, not as a timeline row
+               "track": into, "span": gen.get("splice")}  # in-place jobs show it on that track, over those bars
         self.jobs[job_id] = job
         self.state.pending.append(job)
         if pads:
@@ -257,6 +267,11 @@ class GenerateMixin:
                               targets=job["gen"].get("targets"))
             self.refresh(remix=False)
             return
+        if job["gen"].get("splice") and job.get("track") is not None:
+            if job["track"] in self.project.tracks:
+                self._splice(job["track"], Path(ev["path"]), *job["gen"]["splice"], job["name"], ev.get("seconds"))
+                return
+            self.engine_label.setText(f"{job['name']}: that track was deleted meanwhile, so it's a new track")
         self._checkpoint(f"Generate {job['name']}")
         trim = job["gen"].get("trim_to")
         clip = Clip(Path(ev["path"]), start=job["gen"].get("start", 0.0),  # a separated take sits where it was
@@ -272,6 +287,51 @@ class GenerateMixin:
                 heard.muted = True
         self.state.selected_track = len(self.project.tracks) - 1
         self.engine_label.setText(f"{job['name']} generated in {ev['seconds']}s")
+        self.refresh()
+        self._changed()
+
+    def _splice(self, track: Track, path: Path, a: float, b: float, name: str, seconds=None) -> None:
+        """Put bars a..b of a generated result into ``track`` in place, with 20 ms crossfades into what's
+        either side (the result is a whole-layer render; only that stretch is used)."""
+        from .. import fx
+        from ..model import load_audio
+        f = 0.02
+        lo, hi = max(0.0, a - f), b + f
+        i0, i1 = int(round(lo * SR)), int(round(hi * SR))
+        result = load_audio(path)
+        new = np.zeros((i1 - i0, 2), np.float32)
+        seg = result[i0:i1]
+        new[:len(seg)] = seg
+        start, raw = fx.raw(track)
+        orig = np.zeros_like(new)
+        o0, o1 = max(i0, start), min(i1, start + len(raw))
+        if o1 > o0:
+            orig[o0 - i0:o1 - i0] = raw[o0 - start:o1 - start]
+        n = min(int(f * SR), len(new) // 2)
+        ramp = np.linspace(0.0, 1.0, n, dtype=np.float32)[:, None]
+        if lo > 0:
+            new[:n] = orig[:n] * (1 - ramp) + new[:n] * ramp
+        new[-n:] = new[-n:] * (1 - ramp) + orig[-n:] * ramp
+        clip_path = self.project.write_wav(new, "bars")
+        self._checkpoint(f"Generate {name}")
+        kept = []
+        for c in track.clips:
+            if c.end <= lo or c.start >= hi:
+                kept.append(c)
+                continue
+            if c.start < lo and (parts := c.split(lo)):
+                kept.append(parts[0])
+            if c.end > hi and (parts := c.split(hi)):
+                kept.append(parts[1])
+        fresh = Clip(clip_path, lo)
+        track.clips = sorted([*kept, fresh], key=lambda c: c.start)
+        self.state.selected_track = self.project.tracks.index(track)
+        self.state.selected_clip = fresh
+        bar = self.project.bar_seconds
+        took = f" in {seconds}s" if seconds else ""
+        self.engine_label.setText(f"Bars {round(a / bar) + 1}–{round(b / bar)} of {track.name} done{took} — "
+                                  "Ctrl+Z puts the old ones back")
+        log.info("spliced %s into %s at %.2f–%.2fs", path.name, track.name, lo, hi)
         self.refresh()
         self._changed()
 

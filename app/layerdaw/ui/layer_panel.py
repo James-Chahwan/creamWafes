@@ -196,8 +196,8 @@ class LayerPanel(QWidget):
                                    "QPushButton:disabled { background: #39414d; color: #8a93a0; }")
         self.gen_btn.clicked.connect(self._generate)
         hint = QLabel("Or drag on the ruler. The AI redoes those bars of this layer, hearing the rest of it, and "
-                      "fills silent bars too. You get a new take (this one is muted, not lost) with the same "
-                      "sound settings.")
+                      "fills silent bars too. The new bars go right into this track, in that spot "
+                      "(Ctrl+Z puts the old ones back).")
         hint.setWordWrap(True)
         hint.setStyleSheet("color: #7a828e; font-size: 11px;")
         lay.addWidget(head)

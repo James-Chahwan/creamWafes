@@ -198,15 +198,37 @@ check(len(SENT) == sent + 1 and task == "repaint" and abs(params["repainting_sta
 src_audio, _ = sf.read(params["src_audio"], dtype="float32", always_2d=True)
 dry_keys = w.project.render([gappy], len(src_audio) / SR, dry=True)
 check(np.abs(src_audio - dry_keys).max() < 1e-4, "the AI hears the layer dry (its reverb isn't baked into the new take)")
+check(w.state.pending[-1].get("track") is gappy and w.lanes.rows() == len(w.project.tracks),
+      "while it generates, the progress sits on that track over those bars (no extra row)")
+n_tracks = len(w.project.tracks)
+if SHOTS:
+    w.state.pending[-1]["progress"] = 0.6
+    w.lanes.update()
+    QApplication.processEvents()
+    w.grab().save(f"{SHOTS}/layer-generating.png")
 deliver(w)
-take = w.project.tracks[-1]
-check(take is not gappy and gappy.muted and take.fx == gappy.fx and (take.volume, take.pan) == (0.7, -0.4),
-      "the new take keeps the layer's sound settings, volume and pan; the old one is muted")
-check(w.layer_track() is take and "keys (bars 3–5 redone)" in panel.title.text(), "…and the panel moves to the new take")
+fresh = w.state.selected_clip
+if SHOTS:
+    QApplication.processEvents()
+    w.grab().save(f"{SHOTS}/layer-spliced.png")
+check(len(w.project.tracks) == n_tracks and not gappy.muted and fresh in gappy.clips,
+      "the new bars go right into the same track (no new take)")
+check(abs(fresh.start - (2 * bar - 0.02)) < 1e-3 and abs(fresh.end - (5 * bar + 0.02)) < 1e-3
+      and gappy.fx == {"warmth": 0.5, "reverb": 0.3} and (gappy.volume, gappy.pan) == (0.7, -0.4),
+      f"…exactly in bars 3–5 ({fresh.start:.2f}–{fresh.end:.2f}s), keeping the track's sound settings")
+others = [c for c in gappy.clips if c is not fresh]
+check(all(c.end <= fresh.start + 1e-6 or c.start >= fresh.end - 1e-6 for c in others),
+      "…and nothing else overlaps it")
+mix = w.project.render([gappy], dry=True)
+a = int(round(fresh.start * SR))
+check(np.abs(np.diff(mix[a - 50:a + 50, 0])).max() < 0.05, "the join is crossfaded (no click)")
+check(w.layer_track() is gappy and "Bars 3–5 of keys done" in w.engine_label.text(),
+      f"the panel stays on the track ({w.engine_label.text()})")
+w.undo()
+check(len(gappy.clips) == 2 and fresh not in gappy.clips, "Ctrl+Z puts the old bars back")
 panel.gen_prompt.clear()
 panel.gen_btn.click()
-check(SENT[-1][1]["caption"] == "soft chords filling the gap" and
-      w._layer_prompt(gappy) == "keyboard, same sound and style as the rest of this part",
+check(SENT[-1][1]["caption"] == "keyboard, same sound and style as the rest of this part",
       f"with nothing typed it asks for more of the same ({SENT[-1][1]['caption']})")
 w.jobs.clear()
 w.state.pending.clear()

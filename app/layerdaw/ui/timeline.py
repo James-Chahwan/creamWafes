@@ -144,7 +144,8 @@ class Lanes(_TimeDragMixin, QWidget):
     # --- geometry ----------------------------------------------------------------------
 
     def rows(self) -> int:
-        return len(self.project.tracks) + sum(1 for j in self.state.pending if j["row"] is None and not j.get("pads"))
+        return len(self.project.tracks) + sum(1 for j in self.state.pending
+                                              if j["row"] is None and not j.get("pads") and j.get("track") is None)
 
     def update_size(self, min_width: int, min_height: int = 0) -> None:
         length = max(self.project.length + 4 * self.project.bar_seconds, 60)
@@ -230,10 +231,17 @@ class Lanes(_TimeDragMixin, QWidget):
         for job in self.state.pending:
             if job.get("pads"):  # shown on the pads instead
                 continue
-            row = job["row"]
-            if row is None:
-                row, new_rows = new_rows, new_rows + 1
-            box = QRectF(2, row * ROW_H + 3, self.state.x(length), ROW_H - 6)
+            if job.get("track") is not None:  # going into an existing track: over just those bars
+                if job["track"] not in self.project.tracks:
+                    continue
+                row = self.project.tracks.index(job["track"])
+                a, b = job.get("span") or (0.0, length)
+                box = QRectF(self.state.x(a), row * ROW_H + 3, self.state.x(b) - self.state.x(a), ROW_H - 6)
+            else:
+                row = job["row"]
+                if row is None:
+                    row, new_rows = new_rows, new_rows + 1
+                box = QRectF(2, row * ROW_H + 3, self.state.x(length), ROW_H - 6)
             p.setPen(QPen(QColor("#7aa2f7"), 1, Qt.DashLine))
             p.setBrush(QBrush(QColor(122, 162, 247, 40), Qt.BDiagPattern))
             p.drawRoundedRect(box, 4, 4)

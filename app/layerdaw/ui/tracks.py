@@ -229,6 +229,7 @@ class TrackHeaders(QWidget):
             if item.widget():
                 item.widget().deleteLater()
         busy_rows = {j["row"] for j in pending if j["row"] is not None}
+        busy_rows |= {project.tracks.index(j["track"]) for j in pending if j.get("track") in project.tracks}
         self.headers = {}
         for row, track in enumerate(project.tracks):
             header = TrackHeader(track, row == selected, row in busy_rows)
@@ -236,7 +237,7 @@ class TrackHeaders(QWidget):
                 getattr(header, name).connect(getattr(self, name))
             self.headers[id(track)] = header
             self._layout.addWidget(header)
-        new_jobs = [j for j in pending if j["row"] is None and not j.get("pads")]
+        new_jobs = [j for j in pending if j["row"] is None and not j.get("pads") and j.get("track") is None]
         for job in new_jobs:
             placeholder = PendingHeader(job["label"])
             placeholder.cancel.connect(self.cancel)
