@@ -5,6 +5,8 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+import numpy as np
+
 from PySide6.QtCore import QEvent, Qt, QTimer, QUrl
 from PySide6.QtGui import QAction, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QComboBox, QDockWidget, QFileDialog, QGridLayout,
@@ -45,7 +47,7 @@ Ctrl+Z / Ctrl+Shift+Z   undo / redo
 Del              delete the selected clip (or track)
 Ctrl+D           duplicate the selected clip after itself
 Ctrl+E           split at the playhead
-Ctrl+L           add layer
+Ctrl+L           add layer · Ctrl+Shift+X export song
 P                show/hide the pads · keys 1234/QWER/ASDF/ZXCV play them (Shift = softer)
 Pads             click = play & edit it · Ctrl+click add/remove · Shift+click range
                  any pad plays as a Sample, a Chord or a Note of the song's key
@@ -113,6 +115,8 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         self.a_import = A("&Import audio…", self.import_audio, "Ctrl+I")
         self.a_chop_file = A("Chop an audio file onto the pads…", lambda: self.chop_file_to_pads(),
                              tip="Slice a drum loop or stem from disk across the pads (the selected ones, or all 16)")
+        self.a_export_song = A("⤓ Export song…", self.export_song, "Ctrl+Shift+X",
+                               "The whole mix as one file: MP3, WAV, FLAC, OGG, Opus, AIFF or M4A")
         self.a_export = A("&Export stems…", self.export_stems, "Ctrl+Shift+E",
                           "Every track + the mix as WAVs for Ardour")
         self.a_undo = A("↶ Undo", self.undo, "Ctrl+Z")
@@ -162,7 +166,9 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         self.recent_menu.aboutToShow.connect(self._fill_recent)
         file.addActions([self.a_save, self.a_rename])
         file.addSeparator()
-        file.addActions([self.a_import, self.a_chop_file, self.a_export])
+        file.addActions([self.a_import, self.a_chop_file])
+        file.addSeparator()
+        file.addActions([self.a_export_song, self.a_export])
         file.addSeparator()
         file.addAction(self._act("Quit", self.close, "Ctrl+Q"))
         edit = bar.addMenu("&Edit")
@@ -224,6 +230,8 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         bar.addActions([self.a_layer])
         bar.addSeparator()
         bar.addAction(self.a_pads)
+        bar.addSeparator()
+        bar.addAction(self.a_export_song)
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         bar.addWidget(spacer)
@@ -603,6 +611,66 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         self.state.selection = self.state.selected_track = self.state.selected_clip = None
         self.__dict__.pop("_instrument", None)  # fresh pitched-note cache for the new song
         self.refresh()
+
+    def export_song(self, options: dict | None = None) -> Path | None:
+        """File → Export song…: render the mix (with every track's sound settings) to one file."""
+        from .. import export
+        from ..model import SR
+        from .export_dialog import ExportDialog
+        if not self.project.tracks:
+            self.engine_label.setText("Nothing to export yet — add some tracks first")
+            return None
+        if options is None:
+            dlg = ExportDialog(self, getattr(self, "_export_prefs", None))
+            accepted = dlg.exec()
+            options, prefs = dlg.options(), dlg.prefs()
+            dlg.deleteLater()
+            if not accepted:
+                return None
+            self._export_prefs = prefs
+        kind, a, b = options["range"]
+        tail = 6.0 if options["tails"] else 0.0
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.engine_label.setText("Exporting…")
+        QApplication.processEvents()
+        try:
+            mix = self.project.render(None, b + tail)[int(round(a * SR)):]
+            keep = int(round((b - a) * SR))
+            mix = export.trim_tail(mix, keep) if tail else mix[:keep]
+            if kind == "sel" and len(mix) > 480:  # a selection ends where it ends: no click
+                mix[-480:] *= np.linspace(1, 0, 480, dtype=np.float32)[:, None]
+            mastered, report = export.master(mix, options["level"])
+            path = options["path"]
+            n = 2
+            while path.exists():  # never overwrite an earlier export
+                path = path.with_name(f"{options['path'].stem} ({n}){path.suffix}")
+                n += 1
+            path = export.write(path, mastered, options["format"], options["quality"], options["rate"],
+                                title=options.get("title", ""), artist=options.get("artist", ""))
+        except Exception as exc:  # noqa: BLE001 - tell the user, keep the app
+            QApplication.restoreOverrideCursor()
+            log.exception("export failed")
+            QMessageBox.warning(self, "Export failed", f"Couldn't export:\n\n{exc}")
+            return None
+        QApplication.restoreOverrideCursor()
+        seconds = len(mastered) / SR
+        info = (f"{path.name}  ·  {int(seconds // 60)}:{int(seconds % 60):02d}  ·  {path.stat().st_size / 1e6:.1f} MB"
+                f"  ·  {report['lufs']:.1f} LUFS, peak {report['peak_db']:.1f} dB")
+        self.engine_label.setText(f"Exported {info}")
+        log.info("exported %s (%s, level %s, gain %+.1f dB)", path, options["format"], options["level"],
+                 report["gain_db"])
+        if getattr(self, "_quiet_export", False):
+            return path
+        box = QMessageBox(QMessageBox.Information, "Exported", f"{info}\n\n{path.parent}", parent=self)
+        play = box.addButton("▶ Play it", QMessageBox.ActionRole)
+        folder = box.addButton("Open folder", QMessageBox.ActionRole)
+        box.addButton(QMessageBox.Ok)
+        box.exec()
+        if box.clickedButton() is play:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+        elif box.clickedButton() is folder:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.parent)))
+        return path
 
     def export_stems(self) -> None:
         if not self.project.tracks:
