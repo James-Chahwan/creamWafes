@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# the AI engine: upstream ACE-Step checkout + ~10.5 GB of model weights + its own environment.
+# Never committed; tools/setup_engine.sh recreates it at the pinned commit.
+engine/
+
+# generated output from tools/benchmarks
+test_out/
+
+# editor / tool caches
+.glia/
+.idea/
+.vscode/
+*.swp
+.DS_Store
