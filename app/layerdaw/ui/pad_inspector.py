@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, 
                                QPushButton, QStackedWidget, QToolButton, QVBoxLayout, QWidget)
 
 from ..model import Pad
-from .pad_grid import CATEGORIES, PAD_TO_KEY
+from .pad_grid import CATEGORIES, KEYED, pad_key
 
 FLAVOURS = ["triad", "7th", "sus2", "sus4", "add9"]
 MODES = {"sample": [("oneshot", "One-shot"), ("hold", "Hold"), ("loop", "Loop"), ("playon", "Play-on")],
@@ -204,7 +204,7 @@ class PadInspector(QWidget):
         self.multi_title = QLabel()
         self.multi_title.setStyleSheet("font-weight: 700; font-size: 14px;")
         self.multi_title.setWordWrap(True)
-        song = QPushButton("✦ Make a song from these…")
+        song = QPushButton("✦ Make a song (or a part) from these…")
         song.setStyleSheet("QPushButton { background: #4f7fd9; color: white; padding: 7px; font-weight: 700; }")
         song.setToolTip("Arrange exactly these sounds into a full song: drums, chords, bass, hooks")
         song.clicked.connect(self.make_song)
@@ -248,7 +248,7 @@ class PadInspector(QWidget):
     # --- showing state ----------------------------------------------------------------------
     def show_single(self, index: int, pad: Pad, degree_labels: list[str], held_flavour: str | None) -> None:
         self.stack.setCurrentIndex(0)
-        self.title.setText(f"Pad {PAD_TO_KEY[index]}")
+        self.title.setText(f"Pad {pad_key(index)}")
         if not self.name.hasFocus():
             self.name.setText(pad.name)
         if self.category.findText(pad.kind) < 0:  # e.g. "guitar" from a track it was loaded from
@@ -282,5 +282,6 @@ class PadInspector(QWidget):
 
     def show_multi(self, indices: list[int]) -> None:
         self.stack.setCurrentIndex(1)
-        keys = " ".join(PAD_TO_KEY[i] for i in sorted(indices, key=lambda i: (-(i // 4), i % 4)))
+        order = sorted(indices, key=lambda i: (0, -(i // 4), i % 4) if i < KEYED else (1, i, 0))  # as laid out
+        keys = " ".join(pad_key(i) for i in order)
         self.multi_title.setText(f"{len(indices)} pads selected: {keys}")

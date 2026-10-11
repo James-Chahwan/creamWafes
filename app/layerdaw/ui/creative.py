@@ -17,7 +17,7 @@ from ..audio import Note, render_note
 from ..chords import detect_pitch
 from ..diag import log
 from ..model import SR, Clip, Track, load_audio
-from .pad_grid import PAD_TO_KEY, family
+from .pad_grid import family, pad_key
 
 MOODS = ["dark", "sad", "epic", "trap", "chill", "jazzy", "uplifting", "pop"]
 
@@ -211,7 +211,8 @@ class CreativeMixin:
     def progression_to_pads(self, prog: dict) -> None:
         """Lay the progression's chords across the selected pads (or 4 pads from the selected one)."""
         sel = sorted(self.selected_pads)
-        targets = sel if len(sel) > 1 else [(sel[0] + k) % 16 for k in range(4)]
+        targets = sel if len(sel) > 1 else [sel[0] + k for k in range(4)]
+        self._ensure_pads(max(targets) + 1)
         slots = theory.pad_slots(prog["degrees"])
         self._checkpoint("Progression onto pads")
         for n, i in enumerate(targets):
@@ -226,7 +227,7 @@ class CreativeMixin:
         self.refresh_pads()
         self._changed()
         names = [self.pad_label(self.project.pads[i])[0] for i in targets]
-        self.engine_label.setText(f"Chord pads {' '.join(PAD_TO_KEY[i] for i in targets)}: {' · '.join(names)}")
+        self.engine_label.setText(f"Chord pads {' '.join(pad_key(i) for i in targets)}: {' · '.join(names)}")
         log.info("progression → pads %s %s", targets, names)
 
     def progression_to_timeline(self, prog: dict, bars_per_chord: int, repeats: int) -> None:
@@ -273,7 +274,7 @@ class CreativeMixin:
         sel = sorted(self.selected_pads)
         pads = [pad] if pad is not None else (sel if len(sel) > 1 else [sel[0]] if sel else [12])
         gen = {"mode": "hooks", "kind": "hook", "prompt": prompt, "hook_type": kind, "hook_pads": pads}
-        label = f"hook → pad {PAD_TO_KEY[pad]}" if pad is not None else "hooks"
+        label = f"hook → pad {pad_key(pad)}" if pad is not None else "hooks"
         self._submit("text2music", params, gen, name=label, mute=[], pads=pads)
 
     def _hooks_ready(self, path: Path, prompt: str, kind: str, pads: list[int]) -> None:
@@ -293,7 +294,7 @@ class CreativeMixin:
         self.refresh_pads()
         self._changed()
         self.engine_label.setText(f"{len(ranges)} hook{'s' if len(ranges) != 1 else ''} on the top row — "
-                                  f"keys {' '.join(PAD_TO_KEY[i] for i in pads[:len(ranges)])}")
+                                  f"keys {' '.join(pad_key(i) for i in pads[:len(ranges)])}")
         log.info("hooks (%s) → pads %s from %s", kind, pads[:len(ranges)], path.name)
 
 
@@ -394,6 +395,11 @@ class SoundDialog(QDialog):
                 self.set_kind(guess_type(f"{pad.name} {pad.kind}"))
         self.vary.toggled.connect(lambda on: self.how_different.setEnabled(on))
         self.how_different.setEnabled(self.vary.isChecked())
+        self.spread = QCheckBox("Put every take on its own pad (in the tray)")
+        self.spread.setToolTip("Keep all of them to play with: they go onto empty tray pads below the 4×4"
+                               + (" — this pad stays as it is" if has_sound else ""))
+        self.spread.setChecked(vary)  # variations: keep them all next to the original by default
+        self.vary.toggled.connect(self.spread.setChecked)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText(f"✦ Generate {len(keys)} sounds" if self.many else "✦ Generate")
         buttons.accepted.connect(self.accept)
@@ -407,7 +413,10 @@ class SoundDialog(QDialog):
         if self.many:
             form.addRow("Takes", QLabel(f"a different one on each pad ({' '.join(keys)})"))
         else:
-            form.addRow("Takes", takes_box)
+            takes_row = QHBoxLayout()
+            takes_row.addWidget(takes_box)
+            takes_row.addWidget(self.spread)
+            form.addRow("Takes", takes_row)
         if has_sound:
             slider_row = QHBoxLayout()
             for w in (QLabel("a little"), self.how_different, QLabel("a lot")):
@@ -447,6 +456,7 @@ class SoundDialog(QDialog):
         return {"text": self.text.text().strip(), "type": self.sound_type(), "genre": genre[0] if genre else "",
                 "moods": self.moods.selected(), "length": self._picked(self.length_buttons),
                 "takes": int(self._picked(self.takes_buttons)), "vary": self.vary.isChecked(),
+                "spread": self.spread.isChecked() and not self.many,
                 "strength": round(1.0 - 0.7 * self.how_different.value() / 100, 2)}
 
     def accept(self) -> None:
@@ -457,9 +467,10 @@ class SoundDialog(QDialog):
 
 
 class SoundPicker(QDialog):
-    """Audition the best candidates from one generation and pick one (or ask for more)."""
+    """Audition the best candidates from one generation and pick one (or ask for more, or keep them all)."""
 
     MORE = 2
+    ALL = 3
 
     def __init__(self, window, audio: np.ndarray, picks: list[tuple[int, int, str]], pad_key: str):
         super().__init__(window)
@@ -482,10 +493,14 @@ class SoundPicker(QDialog):
         use.clicked.connect(self._use)
         more = QPushButton("✦ More like this")
         more.clicked.connect(lambda: self.done(self.MORE))
+        keep_all = QPushButton("All into the tray")
+        keep_all.setToolTip("Keep every take: each goes on an empty pad below the 4×4")
+        keep_all.clicked.connect(lambda: self.done(self.ALL))
+        keep_all.setEnabled(bool(picks))
         cancel = QPushButton("Cancel")
         cancel.clicked.connect(self.reject)
         actions = QHBoxLayout()
-        for b in (more, cancel, use):
+        for b in (more, keep_all, cancel, use):
             actions.addWidget(b)
         layout = QVBoxLayout(self)
         hint = QLabel("Click a candidate to hear it, then Put on pad." if picks else
@@ -564,7 +579,7 @@ class BankDialog(QDialog):
         from ..sounds import plan_bank
         plan = plan_bank(self.targets, self.include())
         names = dict(BANK_PARTS)
-        self.preview.setText("  ·  ".join(f"<b>{' '.join(PAD_TO_KEY[i] for i in pads)}</b> {names[p].split(' (')[0]}"
+        self.preview.setText("  ·  ".join(f"<b>{' '.join(pad_key(i) for i in pads)}</b> {names[p].split(' (')[0]}"
                                           for p, pads in plan.items()) or "<i>pick something to make</i>")
 
     def spec(self) -> dict:
@@ -585,7 +600,7 @@ class SoundMixin:
         targets = targets or [index]
         if text is None:
             pad = self.project.pads[targets[0]]
-            dlg = SoundDialog(self, [PAD_TO_KEY[i] for i in targets], getattr(self, "_last_sound_text", ""),
+            dlg = SoundDialog(self, [pad_key(i) for i in targets], getattr(self, "_last_sound_text", ""),
                               pad if len(targets) == 1 else None, self._sound_prefs(), vary=vary)
             accepted = dlg.exec()
             spec = dlg.spec()
@@ -606,6 +621,13 @@ class SoundMixin:
     def _submit_sound(self, spec: dict, targets: list[int], auto: bool = False, extra: dict | None = None) -> None:
         from ..sounds import caption, take_seconds, variation_source
         st = spec["type"]
+        source = targets[0]  # the pad the dialog was opened on (a variation starts from its sound)
+        if spec.get("spread") and len(targets) == 1:  # every take on its own pad
+            n = int(spec.get("takes", 4))
+            keep = [] if spec.get("vary") or self._has_sound(self.project.pads[source]) else [source]
+            targets = keep + self.tray_slots(n - len(keep))
+            auto = True
+            self.pad_panel.grid.show_pad(targets[-1])
         takes = max(int(spec.get("takes", 4)), len(targets))
         cap = caption(st, spec.get("text", ""), spec.get("genre", ""), spec.get("moods", ()), spec.get("length", "medium"))
         params = self._base_params(cap, "[Instrumental]", 8, -1)
@@ -613,8 +635,8 @@ class SoundMixin:
         gen = {"mode": "sound", "kind": st, "prompt": spec.get("text", ""), "sound_type": st,
                "sound_pad": targets[0], "targets": list(targets), "spec": spec,
                "auto": auto or len(targets) > 1, **(extra or {})}
-        pad = self.project.pads[targets[0]]
-        keys = " ".join(PAD_TO_KEY[i] for i in targets)
+        pad = self.project.pads[source]
+        keys = " ".join(pad_key(i) for i in targets)
         if spec.get("vary") and pad.clip is not None:
             src = variation_source(pad.buffer(), st, self.project.beat_seconds)
             wav = self.project.write_wav(src, "variation-src")
@@ -643,10 +665,13 @@ class SoundMixin:
             self._picks_onto_pads(path, picks, targets, sound_type)
             return
         index = targets[0]
-        picker = SoundPicker(self, audio, picks, PAD_TO_KEY[index])
+        picker = SoundPicker(self, audio, picks, pad_key(index))
         result = picker.exec()
         picker.deleteLater()
         self.player._cut.append(("audition",))
+        if result == SoundPicker.ALL:
+            self._picks_onto_pads(path, picks, self.tray_slots(len(picks)), sound_type)
+            return
         if result == SoundPicker.MORE:
             self._submit_sound(spec if gen.get("spec") else {**self._sound_prefs(), "text": gen["prompt"],
                                                               "type": sound_type}, targets)
@@ -680,8 +705,9 @@ class SoundMixin:
         self.pads_dock.show()
         self.refresh_pads()
         self._changed()
-        missing = [PAD_TO_KEY[i] for i in targets[len(filled):]]
-        self.engine_label.setText(f"{sound_type} on pads {' '.join(PAD_TO_KEY[i] for i in filled)}"
+        self.pad_panel.grid.show_pad(filled[-1])
+        missing = [pad_key(i) for i in targets[len(filled):]]
+        self.engine_label.setText(f"{sound_type} on pads {' '.join(pad_key(i) for i in filled)}"
                                   + (f" — only {len(filled)} good takes, {' '.join(missing)} left as they were"
                                      if missing else ""))
         log.info("%s → pads %s", sound_type, filled)
@@ -705,7 +731,7 @@ class SoundMixin:
         self.refresh_pads()
         self._changed()
         names = [self.pad_label(self.project.pads[i])[0] for i in chord_pads]
-        self.engine_label.setText(f"Chord pads {' '.join(PAD_TO_KEY[i] for i in chord_pads)}: {' · '.join(names)}")
+        self.engine_label.setText(f"Chord pads {' '.join(pad_key(i) for i in chord_pads)}: {' · '.join(names)}")
 
     # --- a whole bank ---------------------------------------------------------------------------
     def fill_bank(self, targets: list[int] | None = None, spec: dict | None = None) -> dict:
@@ -772,9 +798,24 @@ class SongDialog(QDialog):
         self.style.addItem(f"Auto ({auto}, from {window.project.bpm} BPM)", "auto")
         for st in arrange.STYLES:
             self.style.addItem(st, st)
-        self.short = QRadioButton("Short — about 32 bars (intro, verse, chorus, break, chorus)")
-        self.full = QRadioButton("Full — about 72 bars (… plus an outro, longer sections)")
+        self.short = QRadioButton("Short song — about 32 bars (intro, verse, chorus, break, chorus)")
+        self.full = QRadioButton("Full song — about 72 bars (… plus an outro, longer sections)")
         self.full.setChecked(True)
+        self.part = QRadioButton("Just a part:")
+        self.part_name = QComboBox()
+        self.part_name.addItems(arrange.PART_NAMES)
+        self.part_name.setCurrentText("verse")
+        self.part_bars = QSpinBox()
+        self.part_bars.setRange(1, 64)
+        self.part_bars.setValue(8)
+        self.part_bars.setSuffix(" bars")
+        for w in (self.part_name, self.part_bars):
+            w.setEnabled(False)
+        self.part.toggled.connect(lambda on: (self.part_name.setEnabled(on), self.part_bars.setEnabled(on)))
+        part_row = QHBoxLayout()
+        for w in (self.part, self.part_name, self.part_bars):
+            part_row.addWidget(w)
+        part_row.addStretch(1)
         self.auto_roles = {i: arrange.role_of(window.project.pads[i], window._classify_pad) for i in self.indices}
         grid = QGridLayout()
         grid.setHorizontalSpacing(8)
@@ -787,7 +828,7 @@ class SongDialog(QDialog):
         for row, i in enumerate(self.indices, start=1):
             pad = window.project.pads[i]
             label = window.pad_label(pad)
-            what = QLabel(f"<b>{PAD_TO_KEY[i]}</b>")
+            what = QLabel(f"<b>{pad_key(i)}</b>")
             name = QLabel(f"{pad.name or 'synth'}" + (f" ({label[0]})" if label else ""))
             part = QComboBox()
             for role in arrange.ROLES:
@@ -813,15 +854,22 @@ class SongDialog(QDialog):
         form.addRow("Style", self.style)
         form.addRow(self.short)
         form.addRow(self.full)
+        form.addRow(part_row)
         form.addRow(QLabel("What each pad plays, and how its notes sound:"))
         form.addRow(grid)
         form.addRow(self.no_chords)
-        note = QLabel("Every pad lands on its own track (at the playhead's bar). Right-click a track later → "
-                      "Song part to change what it plays or how its notes sound, or ⟳ for a new variation.")
+        note = QLabel("Every pad lands on its own track (at the playhead's bar). A part goes in alongside what's "
+                      "there; a song mutes what it overlaps. Right-click a track later → Song part to change what "
+                      "it plays or how its notes sound, or ⟳ for a new variation.")
         note.setStyleSheet("color: #8a93a0;")
         note.setWordWrap(True)
         form.addRow(note)
         form.addRow(buttons)
+
+    def length(self) -> str:
+        if self.part.isChecked():
+            return f"part:{self.part_name.currentText()}:{self.part_bars.value()}"
+        return "short" if self.short.isChecked() else "full"
 
     def choices(self) -> tuple[dict[int, str], dict[int, str]]:
         """(parts changed from what the pad would play anyway, notes other than 'as the pad is set')."""
@@ -849,7 +897,7 @@ class SongMixin:
             return
         dlg = SongDialog(self, indices)
         accepted = dlg.exec()
-        style, length = dlg.style.currentData(), "short" if dlg.short.isChecked() else "full"
+        style, length = dlg.style.currentData(), dlg.length()
         roles, notes = dlg.choices()
         dlg.deleteLater()
         if accepted:
@@ -947,10 +995,11 @@ class SongMixin:
         peak = float(np.abs(together).max())
         scale = min(1.0, 0.89 / peak) if peak > 0 else 1.0
         del together
-        self._checkpoint("Make a song from pads")
+        part = length.split(":")[1] if length.startswith("part:") else None
+        self._checkpoint(f"Make a {part} from pads" if part else "Make a song from pads")
         end = start + total / SR
-        muted = [t for t in self.project.tracks if self.project.audible(t)
-                 and any(cl.start < end and cl.start + cl.length > start for cl in t.clips)]
+        muted = [] if part else [t for t in self.project.tracks if self.project.audible(t)  # a part slots in
+                                 and any(cl.start < end and cl.start + cl.length > start for cl in t.clips)]
         for t in muted:  # what was already there would play over (and clash with) the new song
             t.muted = True
         tracks = []
@@ -960,20 +1009,21 @@ class SongMixin:
                 continue  # this pad never actually sounded in the arrangement
             mix = mix[: nz[-1] + 1] * scale
             pad, role = pads[i], plan.roles[i]
-            path = self.project.write_wav(mix, f"song-{PAD_TO_KEY[i]}")
+            path = self.project.write_wav(mix, f"song-{pad_key(i)}")
             # everything needed to re-render just this part later (Song part menu / ⟳)
             gen = {"mode": "song", "pad": i, "pads": sorted(pads), "style": plan.style, "length": length,
                    "roles": {str(k): v for k, v in roles.items()}, "notes": {str(k): v for k, v in notes.items()},
                    "variations": {}, "role": role, "scale": scale, "start": start, "bpm": self.project.bpm,
                    "key": self.project.key}
-            track = Track(name=self._unique_name(self._part_name(pad, role)), kind=family(pad.kind),
-                          clips=[Clip(path, start)], prompt=f"{plan.style} arrangement", gen=gen)
+            name = self._part_name(pad, role) + (f" ({part})" if part else "")
+            track = Track(name=self._unique_name(name), kind=family(pad.kind), clips=[Clip(path, start)],
+                          prompt=f"{plan.style} arrangement", gen=gen)
             self.project.tracks.append(track)
             tracks.append(track)
         self.refresh()
         self._changed()
-        self.engine_label.setText(f"Made a {plan.bars}-bar {plan.style} song from {len(tracks)} pads "
-                                  f"(from bar {start_bar + 1}) — press Space"
+        what = f"{plan.bars}-bar {plan.style} {part}" if part else f"{plan.bars}-bar {plan.style} song"
+        self.engine_label.setText(f"Made a {what} from {len(tracks)} pads (from bar {start_bar + 1}) — press Space"
                                   + (f" · muted {len(muted)} track{'s' * (len(muted) > 1)} it overlapped "
                                      "(unmute to layer them)" if muted else ""))
         log.info("song from pads %s: %s, %d bars, %d tracks, level %.2f, roles %s, notes %s, muted %s",
@@ -992,7 +1042,7 @@ class SongMixin:
             return False
         pads = self._song_pads(g["pads"])
         if i not in pads:
-            self.engine_label.setText(f"Pad {PAD_TO_KEY[i]} has no sound any more — put one back to redo this part")
+            self.engine_label.setText(f"Pad {pad_key(i)} has no sound any more — put one back to redo this part")
             return False
         roles = {int(k): v for k, v in g.get("roles", {}).items()}
         notes_by = {int(k): v for k, v in g.get("notes", {}).items()}
@@ -1007,11 +1057,11 @@ class SongMixin:
         mix = self._render_part(plan, i, pads[i], notes_by.get(i, "auto"), self._song_total(plan))
         nz = np.flatnonzero(np.abs(mix).max(axis=1) > 1e-4)
         if not len(nz):
-            self.engine_label.setText(f"As {ROLE_TEXT[plan.roles[i]]}, pad {PAD_TO_KEY[i]} wouldn't play at all "
+            self.engine_label.setText(f"As {ROLE_TEXT[plan.roles[i]]}, pad {pad_key(i)} wouldn't play at all "
                                       "in this song — kept it as it was")
             return False
         old_role = track.gen.get("role") or self._part_role(track)
-        path = self.project.write_wav(mix[: nz[-1] + 1] * g.get("scale", 1.0), f"song-{PAD_TO_KEY[i]}")
+        path = self.project.write_wav(mix[: nz[-1] + 1] * g.get("scale", 1.0), f"song-{pad_key(i)}")
         start = track.clips[0].start - track.clips[0].offset if track.clips else g.get("start", 0.0)
         what = ("new variation" if vary else f"plays {ROLE_TEXT[role]}" if role else
                 f"notes: {dict(NOTES)[notes].lower()}" if notes else "re-rendered from the pad")
@@ -1053,4 +1103,4 @@ class SongMixin:
                   lambda v=v: self.render_song_part(track, notes=v)) for v, text in NOTES]
         return [("Notes", notes), ("Plays", parts),
                 ("⟳ New variation", lambda: self.render_song_part(track, vary=True)),
-                (f"Re-render from pad {PAD_TO_KEY[i]} (after editing the pad)", lambda: self.render_song_part(track))]
+                (f"Re-render from pad {pad_key(i)} (after editing the pad)", lambda: self.render_song_part(track))]

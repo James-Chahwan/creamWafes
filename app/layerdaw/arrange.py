@@ -122,12 +122,16 @@ ARPS = [(0, 1, 2), (2, 1, 0), (0, 2, 1), (1, 0, 2)]           # lead: which chor
 STABS = [((0,), (0, 6)), ((0, 10), (0, 6, 10)), ((0, 3, 8), (0, 3, 8, 11))]  # stab steps: (verse, chorus)
 
 
+PART_NAMES = ["intro", "verse", "chorus", "break", "outro"]  # "just a part" of a song
+
+
 def make_plan(pads: dict[int, object], *, bpm: int, key_degrees_default: list[int] | None = None,
               style: str = "auto", length: str = "full", hook_beats: dict[int, float] | None = None,
               classify=None, seed: int = 0, roles: dict[int, str] | None = None,
               variations: dict[int, int] | None = None) -> Plan:
-    """Lay out every pad's part across a song. ``pads``: {pad index: Pad}. ``roles`` overrides the
-    part a pad plays; ``variations`` picks another pattern for a pad's part (0 = the first one)."""
+    """Lay out every pad's part across a song. ``pads``: {pad index: Pad}. ``length``: "short",
+    "full", or just one section "part:<intro|verse|chorus|break|outro>:<bars>". ``roles`` overrides
+    the part a pad plays; ``variations`` picks another pattern for a pad's part (0 = the first one)."""
     rng = random.Random(seed)
     style = auto_style(bpm) if style == "auto" else style
     patterns = PATTERNS[style]
@@ -138,7 +142,10 @@ def make_plan(pads: dict[int, object], *, bpm: int, key_degrees_default: list[in
     progression = [pads[i].degree for i in chord_pads] or (key_degrees_default or [0, 5, 3, 4])
     bars_per_chord = 2 if bar_s < 2.0 else 1
     sections, bar = [], 0
-    for name, short, full, *_ in SECTIONS:
+    if length.startswith("part:"):  # just one section, e.g. "part:verse:8"
+        _, name, n = length.split(":")
+        sections, bar = [(name, 0, int(n))], int(n)
+    for name, short, full, *_ in SECTIONS if not sections else []:
         n = short if length == "short" else full
         if n:
             sections.append((name, bar, n))

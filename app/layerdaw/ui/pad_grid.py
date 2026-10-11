@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import QPoint, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import QGridLayout, QWidget
+from PySide6.QtWidgets import QGridLayout, QLabel, QScrollArea, QWidget
 
 from ..model import AUDIO_EXTENSIONS, Pad
 
@@ -25,8 +25,18 @@ _FAMILY = {"kick": "drums", "snare": "drums", "clap": "drums", "hi-hat": "drums"
 CHORD_COLOR = "#a978d6"
 
 
+KEYED = 16  # the top 4×4: played by the keyboard and a MIDI pad controller; the tray below never ends
+COLUMNS = 4
+
+
 def note_to_pad(note: int) -> int:
-    return (note - MIDI_BASE) % 16
+    """Which pad a MIDI note plays: 36–51 the 4×4 (any octave), 52 and up continue into the tray."""
+    return note - MIDI_BASE if note >= MIDI_BASE + KEYED else (note - MIDI_BASE) % KEYED
+
+
+def pad_key(index: int) -> str:
+    """How a pad is named: its key on the 4×4 ("Q"), its number in the tray ("17")."""
+    return PAD_TO_KEY[index] if index < KEYED else str(index + 1)
 
 
 def family(kind: str) -> str:
@@ -70,7 +80,9 @@ class PadButton(QWidget):
     def set_pad(self, pad: Pad, color: QColor, big: tuple[str, str] | None) -> None:
         self.pad, self.color, self.big, self._env = pad, color, big, None
         what = {"chord": "chord", "note": "note"}.get(pad.play, "sample")
-        self.setToolTip(f"Pad {self.index + 1} · key {PAD_TO_KEY[self.index]} · MIDI {MIDI_BASE + self.index}\n"
+        where = (f"key {PAD_TO_KEY[self.index]} · MIDI {MIDI_BASE + self.index}" if self.index < KEYED
+                 else "tray (click to play)")
+        self.setToolTip(f"Pad {pad_key(self.index)} · {where}\n"
                         f"{pad.name or 'empty'} ({what})\nclick: select & play · Ctrl/Shift+click: select several")
         self.update()
 
@@ -138,7 +150,7 @@ class PadButton(QWidget):
                 for x, v in enumerate(env):
                     p.drawLine(int(r.left() + 6 + x), int(mid - v * half), int(r.left() + 6 + x), int(mid + v * half))
         p.setPen(QColor("#e6e9ee") if filled else QColor("#6c7480"))
-        p.drawText(inner, Qt.AlignLeft | Qt.AlignTop, PAD_TO_KEY[self.index])
+        p.drawText(inner, Qt.AlignLeft | Qt.AlignTop, pad_key(self.index))
         if filled:
             tags = [pad.mode if pad.mode != "oneshot" else "", f"{pad.pitch:+d}st" if pad.pitch else "",
                     f"{20 * np.log10(pad.gain):+.0f}dB" if abs(20 * np.log10(pad.gain)) >= 0.5 else ""]
@@ -162,7 +174,10 @@ class PadButton(QWidget):
             self.released.emit(self.index)
 
 
-class PadGrid(QWidget):
+class PadGrid(QScrollArea):
+    """The 4×4 you play with the keyboard/MIDI (pad 1 bottom-left, MPC layout), then a tray of pads
+    that goes on forever below it: somewhere to collect sounds and pick from when making parts."""
+
     hit = Signal(int, float)                 # play it
     released = Signal(int)
     selection_changed = Signal(list)         # selected pad indices, most recent last
@@ -171,19 +186,49 @@ class PadGrid(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        grid = QGridLayout(self)
-        grid.setSpacing(4)
-        grid.setContentsMargins(0, 0, 0, 0)
-        self.buttons = [PadButton(i) for i in range(16)]
+        self.setWidgetResizable(True)
+        self.setFrameShape(QScrollArea.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        inner = QWidget()
+        self._grid = QGridLayout(inner)
+        self._grid.setSpacing(4)
+        self._grid.setContentsMargins(0, 0, 4, 0)
+        self.tray_label = QLabel("TRAY · more pads for collecting sounds — click to play · Ctrl/Shift+click to "
+                                 "select · drop a WAV")
+        self.tray_label.setStyleSheet("color: #8a93a0; font-size: 11px; margin-top: 4px;")
+        self._grid.addWidget(self.tray_label, 4, 0, 1, COLUMNS)
+        self.setWidget(inner)
+        self.setMinimumHeight(4 * 66 + 46)  # the whole 4×4 and a peek at the tray
+        self.buttons: list[PadButton] = []
         self.selected: list[int] = [0]
-        for b in self.buttons:
-            grid.addWidget(b, 3 - b.index // 4, b.index % 4)
+        self.generating: dict[int, float] = {}
+        self.set_count(KEYED + COLUMNS)
+        self._decay = QTimer(self, interval=30, timeout=self._fade)
+        self._decay.start()
+
+    def set_count(self, count: int) -> None:
+        """Show ``count`` pads (the 4×4, then tray rows)."""
+        while len(self.buttons) < count:
+            b = PadButton(len(self.buttons))
+            i = b.index
+            row, col = (3 - i // 4, i % 4) if i < KEYED else (5 + (i - KEYED) // COLUMNS, (i - KEYED) % COLUMNS)
+            self._grid.addWidget(b, row, col)
             b.pressed.connect(self._pressed)
             b.released.connect(self.released)
             b.menu.connect(self._menu)
             b.file_dropped.connect(self.file_dropped)
-        self._decay = QTimer(self, interval=30, timeout=self._fade)
-        self._decay.start()
+            b.selected = i in self.selected
+            b.generating = self.generating.get(i)
+            self.buttons.append(b)
+        while len(self.buttons) > count:
+            b = self.buttons.pop()
+            self._grid.removeWidget(b)
+            b.deleteLater()
+        self.tray_label.setVisible(count > KEYED)
+
+    def show_pad(self, index: int) -> None:
+        if 0 <= index < len(self.buttons):
+            self.ensureWidgetVisible(self.buttons[index], 0, 20)
 
     def _pressed(self, index: int, velocity: float, mods) -> None:
         if mods & Qt.ControlModifier:  # add/remove from the selection; no sound
@@ -210,13 +255,19 @@ class PadGrid(QWidget):
         self.selection_changed.emit(self.selected)
 
     def flash(self, index: int) -> None:
-        self.buttons[index].flash = 1.0
-        self.buttons[index].update()
+        if 0 <= index < len(self.buttons):
+            self.buttons[index].flash = 1.0
+            self.buttons[index].update()
 
     def set_generating(self, indices: list[int], progress: float | None) -> None:
         for i in indices:
-            self.buttons[i].generating = progress
-            self.buttons[i].update()
+            if progress is None:
+                self.generating.pop(i, None)
+            else:
+                self.generating[i] = progress
+            if 0 <= i < len(self.buttons):
+                self.buttons[i].generating = progress
+                self.buttons[i].update()
 
     def _fade(self) -> None:
         for b in self.buttons:

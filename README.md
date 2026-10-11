@@ -33,7 +33,7 @@ minutes); the generate buttons unlock when the status bar says "Engine ready".
 ## Workflow
 
 - **＋ Add layer** on an empty song makes that part on its own (solo drums, bass, vocals…) at the
-  project BPM/key. Or **✦ New idea** (a whole groove from text), or drag audio files in.
+  project BPM/key, or drag audio files in. (No whole songs from a sentence: you build from sounds and layers.)
 - **＋ Add layer** on a song: the engine hears every unmuted track and returns a **new take of the whole
   song with the part added**; the tracks it heard get muted. Every result is a new take — nothing is
   overwritten — so mute/unmute to compare. For **vocals** (ticked by default), drums and bass you can
@@ -51,8 +51,11 @@ minutes); the generate buttons unlock when the status bar says "Engine ready".
 
 ## Pads (P)
 
-16 pads in MPC layout (pad 1 bottom-left), played with the mouse, keys **1234 / QWER / ASDF / ZXCV**
-(Shift = softer) or any USB MIDI pad controller (notes 36–51, auto-connects when plugged in).
+A 4×4 in MPC layout (pad 1 bottom-left), played with the mouse, keys **1234 / QWER / ASDF / ZXCV**
+(Shift = softer) or any USB MIDI pad controller (notes 36–51, auto-connects when plugged in) — and below
+it a **tray** of pads (17, 18, …) that never runs out: there's always an empty row at the bottom. It's
+where you collect sounds (generated takes, variations, clips and chops from the timeline: right-click a
+clip → **Add to the pad tray**), click to play (MIDI 52+ too), and pick from to make songs or parts.
 Every pad is the same kind of thing; nothing is tied to a row.
 
 - **Click a pad** to play it and open it in the inspector on the right: name, category, **✦ Generate…**
@@ -69,8 +72,9 @@ Every pad is the same kind of thing; nothing is tied to a row.
 - **✦ Generate…** on a pad: 32 kinds in groups (drums incl. rim/crash/ride · 808/sub/bass · keys, bells,
   guitar, strings, brass, flute, lead, pad, stab · vocal chop, choir · riser, impact, fx · **loops**: drum,
   perc, bass, chord, melody, vocal — whole bars at the song's tempo, 1/2/4 bars), genre and mood buttons,
-  Short/Medium/Long, 4 or 8 takes to pick from. **✦ Variation…** remakes the pad's own sound (a little ↔ a
-  lot different). With several pads selected: **✦ Sounds onto these** (a different take on each) and
+  Short/Medium/Long, 4 or 8 takes to pick from — or **every take on its own pad** (into the tray), or
+  **All into the tray** from the picker. **✦ Variation…** remakes the pad's own sound (a little ↔ a lot
+  different); the variations go into the tray and the original stays. With several pads selected: **✦ Sounds onto these** (a different take on each) and
   **✦ Fill these pads (a whole bank)** — one vibe → kit, 808, chords (as chord pads in a progression),
   melody, hook, fx, drum loop, perc, laid out drums-low / chords-on-QWER.
 - **Drop a WAV on a pad** to load it (a chord pad keeps its chord, with the new sound). Right-click a
@@ -96,8 +100,10 @@ Heavier settings work in the background (a 100 s track: ~1–3 s); the track pla
 
 ## Make a song from your pads
 
-Select the pads you like (Ctrl+click) → **✦ Make a song from these…** → pick a style (Auto from the
-BPM, trap, drill, house, lofi, pop, dnb) and Short (~32 bars) or Full (~72 bars). It arranges exactly
+Select the pads you like (Ctrl+click, 4×4 and tray) → **✦ Make a song (or a part) from these…** → pick a
+style (Auto from the BPM, trap, drill, house, lofi, pop, dnb) and Short (~32 bars), Full (~72 bars), or
+**Just a part** (intro / verse / chorus / break / outro, any number of bars) — a part goes in at the
+playhead alongside what's there. It arranges exactly
 those sounds: no AI, nothing new is generated. Drum pads get patterns with fills (from their category,
 name, or the sound itself), chord pads play the progression in order, note/bass pads follow the chord
 roots, leads arpeggiate in the choruses, hooks hit in the choruses and break, FX rise into each chorus.

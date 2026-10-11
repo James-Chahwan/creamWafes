@@ -152,35 +152,3 @@ class LayerDialog(_GenerateDialog):
                 "steps": self.steps.value(), "seed": self.seed.value(),
                 "only_selection": self.only.isChecked(), "bars": self.bars.value(),
                 "isolate": STEM_OF.get(kind) if self.isolate.isChecked() and not self.empty else None}
-
-
-class IdeaDialog(_GenerateDialog):
-    """Generate a starting groove/song from text, to layer on top of."""
-
-    def __init__(self, bpm: int, key: str, parent=None):
-        super().__init__("New idea from text", parent)
-        self.prompt.setPlaceholderText("e.g. lofi hip hop groove, dusty drums and round bass")
-        self.bars = QSpinBox()
-        self.bars.setRange(4, 128)
-        self.bars.setValue(16)
-        self.instrumental = QCheckBox("instrumental (no vocals)")
-        self.instrumental.setChecked(True)
-        self.instrumental.toggled.connect(lambda on: self.lyrics.setEnabled(not on))
-        self.lyrics.setEnabled(False)
-        self.form.addRow(QLabel(f"Uses the project tempo/key: {bpm} BPM, {key}"))
-        self.form.addRow("Describe it", self.prompt)
-        self.form.addRow("Length (bars)", self.bars)
-        self.form.addRow("", self.instrumental)
-        self.form.addRow("Lyrics", self.lyrics)
-        self._finish()
-        self._restore()
-        self.lyrics.setEnabled(not self.instrumental.isChecked())
-
-    def _fields(self) -> dict:
-        return {**super()._fields(), "bars": self.bars, "instrumental": self.instrumental}
-
-    def values(self) -> dict:
-        sung = not self.instrumental.isChecked()
-        return {"prompt": self.prompt.text().strip(), "bars": self.bars.value(),
-                "lyrics": self._lyrics_text() if sung else "[Instrumental]", "instrumental": not sung,
-                "steps": self.steps.value(), "seed": self.seed.value()}

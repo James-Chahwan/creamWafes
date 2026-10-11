@@ -25,8 +25,9 @@ SELECTION, PLAYHEAD, TEXT = QColor(120, 170, 255, 45), QColor("#ff5f56"), QColor
 EMPTY_HELP = [
     "Empty song",
     "",
-    "＋ Add layer   make a first part on its own (drums, bass, keys, vocals…)",
-    "✦ New idea     make a whole groove from a description",
+    "Pads (P)       ✦ Generate sounds, loops and kits; play them; record them in",
+    "               select some → ✦ Make a song (or just a part) from them",
+    "＋ Add layer   make a part on its own (drums, bass, keys, vocals…)",
     "or drag audio files in here",
 ]
 

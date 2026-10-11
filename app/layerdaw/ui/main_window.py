@@ -45,7 +45,7 @@ Ctrl+Z / Ctrl+Shift+Z   undo / redo
 Del              delete the selected clip (or track)
 Ctrl+D           duplicate the selected clip after itself
 Ctrl+E           split at the playhead
-Ctrl+L           add layer · Ctrl+N new idea
+Ctrl+L           add layer
 P                show/hide the pads · keys 1234/QWER/ASDF/ZXCV play them (Shift = softer)
 Pads             click = play & edit it · Ctrl+click add/remove · Shift+click range
                  any pad plays as a Sample, a Chord or a Note of the song's key
@@ -129,7 +129,6 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         self.a_zoom_in = A("Zoom in", lambda: self.zoom(1.5), "Ctrl+=")
         self.a_zoom_out = A("Zoom out", lambda: self.zoom(1 / 1.5), "Ctrl+-")
         self.a_fit = A("Zoom to fit", self.zoom_fit, "Ctrl+0")
-        self.a_idea = A("✦ New idea", self.new_idea, "Ctrl+N", "Generate a starting groove from text")
         self.a_layer = A("＋ Add layer", self.add_layer, "Ctrl+L",
                          "Generate one instrument or vocal (on its own if the song is empty)")
         self.a_cancel = A("Cancel generation", self.cancel_generation, None, "Stop everything that's generating")
@@ -182,7 +181,7 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         layer.setText("Layer panel (shape the selected track's sound)")
         view.addAction(layer)
         gen = bar.addMenu("&Generate")
-        gen.addActions([self.a_idea, self.a_layer])
+        gen.addActions([self.a_layer])
         self.extend_menu = gen.addMenu("Extend everything playing")
         self.extend_menu.aboutToShow.connect(self._fill_extend_menu)
         gen.addAction(self.a_song)
@@ -222,7 +221,7 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         self.key.activated.connect(lambda _i: self.lanes_focus())
         bar.addWidget(self.key)
         bar.addSeparator()
-        bar.addActions([self.a_idea, self.a_layer])
+        bar.addActions([self.a_layer])
         bar.addSeparator()
         bar.addAction(self.a_pads)
         spacer = QWidget()
@@ -292,6 +291,7 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         grid.menu.connect(self.pad_menu)
         grid.file_dropped.connect(self.pad_file_dropped)
         self.pad_panel.record_toggled.connect(self._record_toggled)
+        self.pad_panel.select_all.connect(self.select_all_pads)
         ins.renamed.connect(self.rename_pad)
         ins.category_set.connect(self.set_pad_category)
         ins.generate.connect(lambda: self.design_pad_sound(self.primary_pad))
@@ -369,7 +369,6 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
 
     def _update_actions(self) -> None:
         ready = self.engine.is_ready
-        self.a_idea.setEnabled(ready)
         self.a_layer.setEnabled(ready)
         self.a_cancel.setEnabled(bool(self.jobs))
         self.a_rename.setEnabled(not self.jobs)

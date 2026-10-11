@@ -40,6 +40,7 @@ def restore(project: Project, snap: dict) -> None:
                 setattr(clip, name, value)
             track.clips.append(clip)
         project.tracks.append(track)
+    project.pads = [pad for pad, _ in snap["pads"]]  # the tray may have grown since
     for pad, fields in snap["pads"]:
         for name, value in fields.items():
             setattr(pad, name, value)

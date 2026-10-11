@@ -17,7 +17,7 @@ from ..chords import PadInstrument
 from ..diag import log
 from ..model import SR, Clip, Track, load_audio
 from .pad_inspector import CHOPS as _ALL_CHOPS
-from .pad_grid import CHORD_COLOR, KEY_TO_PAD, MIDI_BASE, PAD_TO_KEY, family, guess_kind, note_to_pad  # noqa: F401
+from .pad_grid import CHORD_COLOR, COLUMNS, KEY_TO_PAD, KEYED, MIDI_BASE, family, guess_kind, note_to_pad, pad_key  # noqa: F401
 from .timeline import KIND_COLORS
 
 CHOPS = [(label, mode) for label, mode in _ALL_CHOPS if mode not in (None, "file")]
@@ -102,6 +102,8 @@ class PadsMixin:
         return [Note(pad.buffer(), gain)]
 
     def hit_pad(self, index: int, velocity: float = 1.0) -> None:
+        if not 0 <= index < len(self.project.pads):
+            return  # e.g. a MIDI note past the end of the tray
         self.pad_panel.grid.flash(index)
         voices = self._pad_voices(index, velocity)
         pad = self.project.pads[index]
@@ -131,7 +133,65 @@ class PadsMixin:
         return "oneshot" if kind in DRUM_KINDS or kind == "percussion" else "hold"
 
     # --- view ------------------------------------------------------------------------------
+    # --- the tray: pads below the 4×4 that never run out ------------------------------------
+    def _ensure_pads(self, count: int) -> None:
+        from ..model import Pad
+        while len(self.project.pads) < count:
+            self.project.pads.append(Pad())
+
+    @staticmethod
+    def _has_sound(pad) -> bool:
+        return pad.clip is not None or pad.play != "sample"
+
+    def _fit_tray(self) -> None:
+        """Always one empty tray row after the last pad with a sound; no more than that."""
+        used = [i for i, p in enumerate(self.project.pads) if self._has_sound(p) and i >= KEYED]
+        want = KEYED + COLUMNS * ((used[-1] - KEYED) // COLUMNS + 2 if used else 1)
+        self._ensure_pads(want)
+        while len(self.project.pads) > want and not self._has_sound(self.project.pads[-1]):
+            self.project.pads.pop()
+
+    def tray_slots(self, count: int) -> list[int]:
+        """``count`` empty tray pads, in order (the tray grows to fit)."""
+        out, i = [], KEYED
+        while len(out) < count:
+            self._ensure_pads(i + 1)
+            if not self._has_sound(self.project.pads[i]) and i not in self.pad_panel.grid.generating:
+                out.append(i)
+            i += 1
+        return out
+
+    def add_to_tray(self, track, clip, bars: bool = False) -> int | None:
+        """Put a clip (or just the selected bars of it) on the next empty tray pad."""
+        lo, hi = 0.0, clip.length
+        if bars and self.state.selection:
+            lo = max(0.0, self.state.selection[0] - clip.start)
+            hi = min(clip.length, self.state.selection[1] - clip.start)
+            if hi - lo < 0.03:
+                self.engine_label.setText("The selected bars don't overlap that clip")
+                return None
+        slot = self.tray_slots(1)[0]
+        kind = guess_kind(track.name) if track.kind in ("song", "audio") else track.kind
+        self.pads_dock.show()
+        self._put_on_pad(slot, clip.path, clip.offset + lo, hi - lo, f"{track.name}" + (" bars" if bars else ""), kind)
+        self.select_pad(slot)
+        self.pad_panel.grid.show_pad(slot)
+        self.engine_label.setText(f"Added to the tray as pad {pad_key(slot)}")
+        return slot
+
+    def select_all_pads(self) -> None:
+        used = [i for i, p in enumerate(self.project.pads) if self._has_sound(p)]
+        self.select_pads(used or list(range(KEYED)))
+
     def refresh_pads(self) -> None:
+        self._fit_tray()
+        grid = self.pad_panel.grid
+        grid.set_count(len(self.project.pads))
+        kept = [i for i in grid.selected if i < len(self.project.pads)] or [0]
+        if kept != grid.selected:  # the tray shrank (undo…): forget pads that are gone
+            grid.selected = kept
+            for b in grid.buttons:
+                b.selected = b.index in kept
         for b, pad in zip(self.pad_panel.grid.buttons, self.project.pads):
             color = QColor(CHORD_COLOR) if pad.play == "chord" else QColor(KIND_COLORS.get(family(pad.kind), "#8e9bb0"))
             b.set_pad(pad, color, self.pad_label(pad))
@@ -206,7 +266,7 @@ class PadsMixin:
     def _targets(self) -> list[int]:
         """The selected pads in grid order (bottom-left first), or every pad if just one is selected."""
         sel = self.selected_pads
-        return sorted(sel) if len(sel) > 1 else list(range(16))
+        return sorted(sel) if len(sel) > 1 else list(range(KEYED))
 
     def set_selected_play(self, play: str) -> None:
         self._checkpoint(f"Play as {play}")
@@ -432,7 +492,9 @@ class PadsMixin:
                     pad.mode = "oneshot"
         self.pads_dock.show()
         self.refresh_pads()
-        self.engine_label.setText(f"Chopped {track.name} into {len(ranges)} pads")
+        self.pad_panel.grid.show_pad(targets[min(len(ranges), len(targets)) - 1])
+        self.engine_label.setText(f"Chopped {track.name} into {len(ranges)} pads "
+                                  f"({pad_key(targets[0])}–{pad_key(targets[min(len(ranges), len(targets)) - 1])})")
         log.info("chop %s mode=%s → pads %s", track.name, mode, targets[:len(ranges)])
         self._changed()
 
@@ -479,10 +541,10 @@ class PadsMixin:
         pad = self.project.pads[index]
         sel = self.selected_pads
         many = len(sel) > 1
-        key = PAD_TO_KEY[index]
+        key = pad_key(index)
         items = []
         if many:
-            items += [(f"✦ Make a song from these {len(sel)} pads…", self.open_song_maker),
+            items += [(f"✦ Make a song (or a part) from these {len(sel)} pads…", self.open_song_maker),
                       (f"✦ Fill these {len(sel)} pads (a whole bank)…", lambda: self.fill_bank(sorted(sel))),
                       (f"✦ Sounds onto these {len(sel)} pads…", lambda: self.generate_sounds(sorted(sel))), None]
         items += [

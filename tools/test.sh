@@ -12,7 +12,7 @@ fi
 trap '[ -n "$MOD" ] && pactl unload-module "$MOD"' EXIT
 
 status=0
-for t in test_timeline test_pads test_chords test_creative test_sounds test_song test_layer test_stems test_real_audio; do
+for t in test_timeline test_pads test_chords test_creative test_sounds test_song test_layer test_stems test_tray test_real_audio; do
     echo "=== $t"
     LAYERDAW_NO_ENGINE=1 PIPEWIRE_NODE=$SINK timeout 240 uv run python "tests/$t.py" 2>&1 | grep -v -E "^qt\.|propagateSizeHints|^ALSA lib"
     code=${PIPESTATUS[0]}

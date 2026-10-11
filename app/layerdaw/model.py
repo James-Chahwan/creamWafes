@@ -404,13 +404,18 @@ class Project:
                 "play": pad.play, "degree": pad.degree, "flavour": pad.flavour, "strum": pad.strum, "root": pad.root,
                 "clip": None if pad.clip is None else
                 {"path": self._rel(pad.clip.path), "offset": pad.clip.offset, "length": pad.clip.length},
-            } for pad in self.pads],
+            } for pad in self.pads[:self._pads_to_save()]],
             "chords": {"migrated": True},
         }
         self.folder.mkdir(parents=True, exist_ok=True)
         tmp = self.folder / "project.json.tmp"
         tmp.write_text(json.dumps(data, indent=2))
         tmp.replace(self.folder / "project.json")  # atomic: a crash mid-save can't corrupt the song
+
+    def _pads_to_save(self) -> int:
+        """The 4×4 always; tray pads up to the last one with something on it."""
+        used = [i for i, p in enumerate(self.pads) if p.clip is not None or p.play != "sample"]
+        return max(PAD_COUNT, (used[-1] + 1) if used else 0)
 
     def _rel(self, path: Path) -> str:
         """Project-relative when the file lives inside the project, absolute otherwise."""
@@ -424,7 +429,7 @@ class Project:
                         clips=[Clip(folder / c["path"], c["start"], c.get("offset", 0.0), c.get("length"))
                                for c in t["clips"]])
                   for t in data["tracks"]]
-        pads = [Pad() for _ in range(PAD_COUNT)]
+        pads = [Pad() for _ in range(max(PAD_COUNT, len(data.get("pads", []))))]  # the 4×4 + the tray
         for pad, saved in zip(pads, data.get("pads", [])):
             if saved:
                 c = saved.get("clip")

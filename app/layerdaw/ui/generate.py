@@ -16,7 +16,7 @@ import numpy as np
 
 from ..diag import log
 from ..model import SR, STEM_KIND, VOCAL_TYPES, Clip, Track
-from .dialogs import IdeaDialog, LayerDialog
+from .dialogs import LayerDialog
 
 SOLO_HINTS = {
     "vocals": "a cappella lead vocal only, dry, no instruments, no music",
@@ -31,17 +31,6 @@ class GenerateMixin:
     """Mixed into MainWindow; needs project, engine, state, jobs, refresh(), _checkpoint()."""
 
     # --- entry points ------------------------------------------------------------------
-
-    def new_idea(self) -> None:
-        dlg = IdeaDialog(self.project.bpm, self.project.key, self)
-        if not dlg.exec():
-            return
-        v = dlg.values()
-        params = self._base_params(v["prompt"], v["lyrics"], v["steps"], v["seed"])
-        params.update(duration=v["bars"] * self.project.bar_seconds, instrumental=v["instrumental"])
-        gen = {"mode": "idea", "kind": "song", "prompt": v["prompt"], "lyrics": v["lyrics"],
-               "steps": v["steps"], "bars": v["bars"], "instrumental": v["instrumental"]}
-        self._submit("text2music", params, gen, name="idea", mute=[])
 
     def add_layer(self, kind: str | None = None, prompt: str | None = None) -> None:
         context = [t for t in self.project.tracks if self.project.audible(t)]
@@ -143,10 +132,8 @@ class GenerateMixin:
             self.engine_label.setText("This was separated out of another take — regenerate that one instead")
         elif mode == "solo":
             self._submit_solo(g["kind"], g["prompt"], g["lyrics"], g["steps"], -1, g["bars"], mute=[track])
-        elif mode == "idea":
-            params = self._base_params(g["prompt"], g["lyrics"], g["steps"], -1)
-            params.update(duration=g["bars"] * self.project.bar_seconds, instrumental=g.get("instrumental", True))
-            self._submit("text2music", params, g, name=name, mute=[track])
+        elif mode == "idea":  # whole songs from text were removed: build from sounds and layers instead
+            self.engine_label.setText("Whole-song ideas from text are gone — redo bars of it, or build from pads")
         elif mode == "repaint":
             self._submit_repaint(g, name, [track])
         else:

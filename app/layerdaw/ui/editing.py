@@ -152,6 +152,7 @@ class EditMixin:
                       ("Chop to pads", [(label, lambda m=mode: self.chop_to_pads(m, track, clip))
                                         for label, mode in (("At each hit (drums)", "hits"), ("Every beat", "beat"),
                                                             ("Every half beat", "half"), ("Every bar", "bar"))]),
+                      ("Add to the pad tray", self._tray_items(track, clip)),
                       ("Delete clip", lambda: self.delete_clip(track, clip)), None]
         if track is not None:
             items += self._track_items(track, t) + [None]
@@ -161,6 +162,16 @@ class EditMixin:
             items.append((f"Redo {self._sel_text()} of everything playing", lambda: self.redo_bars(None)))
         items += [("＋ Add layer…", lambda: self.add_layer()), ("Play from here", lambda: self._play_from(t))]
         self._show_menu(items, pos)
+
+    def _tray_items(self, track: Track, clip: Clip) -> list:
+        """Collect bits of the timeline on the pads, below the 4×4: the clip, the selected bars, or chops."""
+        items = [("The whole clip", lambda: self.add_to_tray(track, clip))]
+        if self.state.selection:
+            items.append((f"Just {self._sel_text()}", lambda: self.add_to_tray(track, clip, bars=True)))
+        items += [None] + [(f"Chop it: {label}", lambda m=mode: self.chop_to_pads(m, track, clip,
+                                                                                    targets=self.tray_slots(16)))
+                           for label, mode in (("at each hit", "hits"), ("every beat", "beat"), ("every bar", "bar"))]
+        return items
 
     def _extend_items(self, track: Track | None, t: float | None = None) -> list:
         """+4/+8/+16 bars always; "to here" when the click was past the end."""

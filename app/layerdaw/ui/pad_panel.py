@@ -11,6 +11,7 @@ from .pad_inspector import PadInspector
 
 class PadPanel(QWidget):
     record_toggled = Signal(bool)
+    select_all = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -24,10 +25,11 @@ class PadPanel(QWidget):
         self.quantize = QCheckBox("Quantize 1/16")
         self.quantize.setChecked(True)
         select_all = QPushButton("Select all")
-        select_all.clicked.connect(lambda: self.grid.select(list(range(16))))
+        select_all.setToolTip("Select every pad that has a sound (4×4 and tray)")
+        select_all.clicked.connect(self.select_all)
         self.midi_label = QLabel("MIDI: …")
         self.midi_label.setStyleSheet("color: #8a93a0;")
-        hint = QLabel("keys 1234 · QWER · ASDF · ZXCV  ·  Shift = softer  ·  drop a WAV on a pad to load it")
+        hint = QLabel("keys 1234 · QWER · ASDF · ZXCV play the 4×4  ·  Shift = softer  ·  the tray scrolls on below")
         hint.setStyleSheet("color: #7a828e; font-size: 11px;")
         bar = QHBoxLayout()
         for w in (self.rec, self.quantize, select_all, self.midi_label):
