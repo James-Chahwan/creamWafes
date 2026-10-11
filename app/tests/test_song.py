@@ -3,7 +3,7 @@
 import os
 import time
 
-os.environ["LAYERDAW_NO_AUDIO"] = "1"
+os.environ["CREAMWAFES_NO_AUDIO"] = "1"
 
 import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
@@ -12,12 +12,12 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialogButtonBox, QPushButton  # noqa: E402
 
 from harness import activate, check, cleanup, demo_song, fake_engine, finish, open_window  # noqa: E402
-from layerdaw import arrange, theory  # noqa: E402
-from layerdaw.chords import detect_pitch  # noqa: E402
-from layerdaw.model import SR, Pad, load_audio  # noqa: E402
-from layerdaw.ui import main_window as mw  # noqa: E402
+from creamwafes import arrange, theory  # noqa: E402
+from creamwafes.chords import detect_pitch  # noqa: E402
+from creamwafes.model import SR, Pad, load_audio  # noqa: E402
+from creamwafes.ui import main_window as mw  # noqa: E402
 
-SHOTS = os.environ.get("LAYERDAW_SHOTS")  # a folder: save screenshots there to look at
+SHOTS = os.environ.get("CREAMWAFES_SHOTS")  # a folder: save screenshots there to look at
 
 # --- the arranger on its own
 pads = {0: Pad(name="kick", kind="kick"), 1: Pad(name="snare", kind="snare"), 2: Pad(name="hats", kind="hi-hat"),
@@ -283,7 +283,7 @@ check(not w.render_song_part(kick_t, vary=True) and "made at 90 BPM" in w.engine
       "after a tempo change it won't redo a part out of time with the rest")
 w.project.bpm = 90
 w.project.save()
-from layerdaw.model import Project  # noqa: E402
+from creamwafes.model import Project  # noqa: E402
 reloaded = next(t for t in Project.load(song).tracks if t.name == kick_t.name)
 check(reloaded.gen["mode"] == "song" and reloaded.gen["pad"] == 0, "song parts stay editable after reopening the song")
 if SHOTS:

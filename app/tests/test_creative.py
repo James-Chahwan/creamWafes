@@ -3,7 +3,7 @@
 import os
 import random
 
-os.environ["LAYERDAW_NO_AUDIO"] = "1"
+os.environ["CREAMWAFES_NO_AUDIO"] = "1"
 
 import numpy as np  # noqa: E402
 from PySide6.QtCore import QTimer  # noqa: E402
@@ -11,10 +11,10 @@ from PySide6.QtWidgets import QApplication, QDialog, QInputDialog  # noqa: E402
 
 import harness  # noqa: E402
 from harness import SENT, check, cleanup, deliver, demo_song, finish, open_window  # noqa: E402
-from layerdaw import theory  # noqa: E402
-from layerdaw.model import SR  # noqa: E402
-from layerdaw.ui import creative  # noqa: E402
-from layerdaw.ui import main_window as mw  # noqa: E402
+from creamwafes import theory  # noqa: E402
+from creamwafes.model import SR  # noqa: E402
+from creamwafes.ui import creative  # noqa: E402
+from creamwafes.ui import main_window as mw  # noqa: E402
 
 mw.MainWindow._show_menu = lambda self, items, pos: None
 harness.fake_engine()

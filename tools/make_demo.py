@@ -1,6 +1,6 @@
 """Make a tiny synthetic demo project (drums + bass, 8 bars, 90 BPM, A minor) to try layering on.
 
-    cd app && uv run python ../tools/make_demo.py ~/Music/LayerDAW/demo
+    cd app && uv run python ../tools/make_demo.py ~/Music/creamWafes/demo
 """
 
 import sys
@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from layerdaw.model import SR, Project
+from creamwafes.model import SR, Project
 
 BPM, BARS = 90, 8
 beat = 60 / BPM

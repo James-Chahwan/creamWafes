@@ -4,7 +4,7 @@ would (offscreen, silent). Also: songs from the old fixed-chord-row layout still
 import json
 import os
 
-os.environ["LAYERDAW_NO_AUDIO"] = "1"
+os.environ["CREAMWAFES_NO_AUDIO"] = "1"
 
 import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
@@ -13,11 +13,11 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog, QToolButton  # noqa: E402
 
 from harness import activate, check, cleanup, demo_song, fake_engine, finish, open_window  # noqa: E402
-from layerdaw import theory  # noqa: E402
-from layerdaw.chords import detect_pitch  # noqa: E402
-from layerdaw.model import SR, Project  # noqa: E402
-from layerdaw.ui import main_window as mw  # noqa: E402
-from layerdaw.ui.timeline import ROW_H  # noqa: E402
+from creamwafes import theory  # noqa: E402
+from creamwafes.chords import detect_pitch  # noqa: E402
+from creamwafes.model import SR, Project  # noqa: E402
+from creamwafes.ui import main_window as mw  # noqa: E402
+from creamwafes.ui.timeline import ROW_H  # noqa: E402
 
 check([theory.chord_name("F# minor", d) for d in range(8)] == ["F#m", "G#°", "A", "Bm", "C#m", "D", "E", "F#m"],
       "F# minor chord names")

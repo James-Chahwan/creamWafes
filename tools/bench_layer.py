@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ENGINE = ROOT / "engine" / "ACE-Step-1.5"
 OUT = ROOT / "test_out"
 sys.path.insert(0, str(ENGINE))
-sys.path.insert(0, str(ROOT / "app" / "layerdaw"))
+sys.path.insert(0, str(ROOT / "app" / "creamwafes"))
 
 import engine_worker  # noqa: E402  (same low-VRAM loader + quantization fix the app uses)
 from acestep.inference import GenerationConfig, GenerationParams, generate_music  # noqa: E402

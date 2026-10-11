@@ -146,7 +146,7 @@ def write(path: Path, audio: np.ndarray, fmt: str, quality, rate: int, src_rate:
         audio = soxr.resample(audio, src_rate, rate, quality="VHQ").astype(np.float32)
     audio = np.clip(audio, -1.0, 1.0)
     if fmt == "m4a":
-        with tempfile.TemporaryDirectory(prefix="layerdaw-export-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="creamwafes-export-") as tmp:
             wav = Path(tmp) / "mix.wav"
             sf.write(wav, audio, rate, subtype="FLOAT")
             cmd = [shutil.which("ffmpeg") or "ffmpeg", "-y", "-loglevel", "error", "-i", str(wav),
@@ -163,7 +163,7 @@ def write(path: Path, audio: np.ndarray, fmt: str, quality, rate: int, src_rate:
               "mp3": dict(format="MP3", subtype="MPEG_LAYER_III", compression_level=_MP3_LEVEL.get(quality, 0.0),
                           bitrate_mode="CONSTANT")}[fmt]
     with sf.SoundFile(path, "w", rate, audio.shape[1], **kwargs) as f:
-        for key, value in (("title", title), ("artist", artist), ("software", "LayerDAW")):
+        for key, value in (("title", title), ("artist", artist), ("software", "creamWafes")):
             if value:
                 try:
                     setattr(f, key, value)

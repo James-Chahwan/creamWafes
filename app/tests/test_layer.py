@@ -3,7 +3,7 @@
 import os
 import time
 
-os.environ["LAYERDAW_NO_AUDIO"] = "1"
+os.environ["CREAMWAFES_NO_AUDIO"] = "1"
 
 import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
@@ -12,10 +12,10 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from harness import SENT, check, cleanup, deliver, demo_song, fake_engine, finish, open_window  # noqa: E402
-from layerdaw import fx  # noqa: E402
-from layerdaw.model import SR, Clip, Project, Track  # noqa: E402
+from creamwafes import fx  # noqa: E402
+from creamwafes.model import SR, Clip, Project, Track  # noqa: E402
 
-SHOTS = os.environ.get("LAYERDAW_SHOTS")
+SHOTS = os.environ.get("CREAMWAFES_SHOTS")
 fake_engine()
 song = demo_song()  # drums + bass, A minor, 90 BPM
 app, w = open_window(song, (1500, 900))

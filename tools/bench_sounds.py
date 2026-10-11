@@ -12,13 +12,13 @@ import soundfile as sf
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "engine" / "ACE-Step-1.5"))
-sys.path.insert(0, str(ROOT / "app" / "layerdaw"))
+sys.path.insert(0, str(ROOT / "app" / "creamwafes"))
 sys.path.insert(0, str(ROOT / "app"))
 
 import engine_worker  # noqa: E402
 from acestep.inference import GenerationConfig, GenerationParams, generate_music  # noqa: E402
-from layerdaw import chop, sounds  # noqa: E402
-from layerdaw.chords import detect_pitch  # noqa: E402
+from creamwafes import chop, sounds  # noqa: E402
+from creamwafes.chords import detect_pitch  # noqa: E402
 
 SR, BPM, KEY = 48000, 140, "F minor"
 beat, bar = 60 / BPM, 240 / BPM

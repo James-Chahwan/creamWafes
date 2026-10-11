@@ -3,16 +3,16 @@
 import json
 import os
 
-os.environ["LAYERDAW_NO_AUDIO"] = "1"
+os.environ["CREAMWAFES_NO_AUDIO"] = "1"
 
 from PySide6.QtCore import QPoint, Qt, QTimer  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialog  # noqa: E402
 
 from harness import SENT, activate, check, cleanup, deliver, demo_song, fake_engine, finish, open_window  # noqa: E402
-from layerdaw.model import Project  # noqa: E402
-from layerdaw.ui import main_window as mw  # noqa: E402
-from layerdaw.ui.timeline import ROW_H  # noqa: E402
+from creamwafes.model import Project  # noqa: E402
+from creamwafes.ui import main_window as mw  # noqa: E402
+from creamwafes.ui.timeline import ROW_H  # noqa: E402
 
 fake_engine()
 menus = []

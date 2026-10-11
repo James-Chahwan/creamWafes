@@ -1,4 +1,4 @@
-"""Shared bits for the LayerDAW end-to-end tests: fake engine, checks, a demo song."""
+"""Shared bits for the creamWafes end-to-end tests: fake engine, checks, a demo song."""
 
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ import soundfile as sf
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 # never take over the real app's inspect socket (that would cut the debug hook off from it)
-os.environ["LAYERDAW_SOCKET"] = str(Path(tempfile.gettempdir()) / f"layerdaw-test-{os.getpid()}.sock")
+os.environ["CREAMWAFES_SOCKET"] = str(Path(tempfile.gettempdir()) / f"creamwafes-test-{os.getpid()}.sock")
 
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from layerdaw.engine import Engine  # noqa: E402
-from layerdaw.model import SR, Project  # noqa: E402
-from layerdaw.ui import main_window as mw  # noqa: E402
+from creamwafes.engine import Engine  # noqa: E402
+from creamwafes.model import SR, Project  # noqa: E402
+from creamwafes.ui import main_window as mw  # noqa: E402
 
 FAILS: list[str] = []
 SENT: list[tuple] = []  # (task, params, output path) for every fake generation
@@ -37,14 +37,14 @@ def finish() -> None:
     for widget in QApplication.topLevelWidgets():
         widget.close()
     QApplication.processEvents()
-    Path(os.environ["LAYERDAW_SOCKET"]).unlink(missing_ok=True)
+    Path(os.environ["CREAMWAFES_SOCKET"]).unlink(missing_ok=True)
     sys.stdout.flush()
     os._exit(1 if FAILS else 0)  # skip interpreter teardown: PySide can segfault there after modal dialogs
 
 
 def demo_song(bpm: int = 90, bars: int = 8) -> Path:
     """A throwaway song folder with synthetic drums + bass, so tests never touch real songs."""
-    root = Path(tempfile.mkdtemp(prefix="layerdaw-test-"))
+    root = Path(tempfile.mkdtemp(prefix="creamwafes-test-"))
     beat, n = 60 / bpm, int(bars * 4 * 60 / bpm * SR)
     rng = np.random.default_rng(1)
     t = np.arange(int(0.3 * SR)) / SR
@@ -120,7 +120,7 @@ def deliver(window) -> None:
 def open_window(song: Path, size=(1300, 760)):
     app = QApplication.instance()
     if app is None:  # look exactly like the real app, so screenshots are representative
-        from layerdaw.__main__ import dark_palette
+        from creamwafes.__main__ import dark_palette
         app = QApplication([])
         app.setStyle("Fusion")
         app.setPalette(dark_palette())

@@ -12,7 +12,7 @@ import soundfile as sf
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "engine" / "ACE-Step-1.5"))
-sys.path.insert(0, str(ROOT / "app" / "layerdaw"))
+sys.path.insert(0, str(ROOT / "app" / "creamwafes"))
 
 import engine_worker  # noqa: E402
 from acestep.inference import GenerationConfig, GenerationParams, generate_music  # noqa: E402
@@ -23,7 +23,7 @@ def main() -> None:
     audio, sr = sf.read(src, dtype="float32")
     end, bar = len(audio) / sr, 240 / bpm
     target = end + 4 * bar
-    from layerdaw_generate import last_loud_bar_end
+    from creamwafes_generate import last_loud_bar_end
     start = max(0.0, min(last_loud_bar_end(audio, bar), end) - bar)
     print(f"[extend] repaint {start:.2f}s -> {target:.2f}s (song ends {end:.2f}s)", flush=True)
     padded = ROOT / "test_out" / "extend_src_padded.wav"

@@ -3,7 +3,7 @@ keeping every take, and making just a part of a song from what you pick (offscre
 
 import os
 
-os.environ["LAYERDAW_NO_AUDIO"] = "1"
+os.environ["CREAMWAFES_NO_AUDIO"] = "1"
 
 import numpy as np  # noqa: E402
 from PySide6.QtCore import QPoint, Qt, QTimer  # noqa: E402
@@ -12,12 +12,12 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 import harness  # noqa: E402
 from harness import SENT, activate, check, cleanup, deliver, demo_song, drum_loop, finish, open_window  # noqa: E402
-from layerdaw.model import Project  # noqa: E402
-from layerdaw.ui import creative  # noqa: E402
-from layerdaw.ui.pad_grid import KEYED, note_to_pad, pad_key  # noqa: E402
-from layerdaw.ui.timeline import ROW_H  # noqa: E402
+from creamwafes.model import Project  # noqa: E402
+from creamwafes.ui import creative  # noqa: E402
+from creamwafes.ui.pad_grid import KEYED, note_to_pad, pad_key  # noqa: E402
+from creamwafes.ui.timeline import ROW_H  # noqa: E402
 
-SHOTS = os.environ.get("LAYERDAW_SHOTS")
+SHOTS = os.environ.get("CREAMWAFES_SHOTS")
 harness.fake_engine(drum_loop(90, 8))
 mw_menus = []
 song = demo_song()

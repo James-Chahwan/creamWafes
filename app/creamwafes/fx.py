@@ -133,7 +133,7 @@ def _pitch(x: np.ndarray, semitones: int) -> np.ndarray:
     exe = shutil.which("rubberband")
     if not exe or not semitones or len(x) < 2048:
         return x
-    with tempfile.TemporaryDirectory(prefix="layerdaw-fx-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="creamwafes-fx-") as tmp:
         src, dst = Path(tmp) / "in.wav", Path(tmp) / "out.wav"
         sf.write(src, x, SR, subtype="FLOAT")
         subprocess.run([exe, "-q", "-p", str(semitones), str(src), str(dst)], check=True, timeout=600,

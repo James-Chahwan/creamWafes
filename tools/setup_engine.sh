@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Set up the AI engine LayerDAW talks to: ACE-Step 1.5 (MIT) at the commit LayerDAW was built
+# Set up the AI engine creamWafes talks to: ACE-Step 1.5 (MIT) at the commit creamWafes was built
 # against, its own Python environment, and the model weights (~10.5 GB download, ~18 GB on disk
 # with the environment). Safe to re-run: finished steps are skipped.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ACE_COMMIT=ca1e85f   # the ACE-Step 1.5 commit LayerDAW is tested with
+ACE_COMMIT=ca1e85f   # the ACE-Step 1.5 commit creamWafes is tested with
 ENGINE=engine/ACE-Step-1.5
 
 command -v uv >/dev/null || { echo "Needs uv: https://docs.astral.sh/uv/ (curl -LsSf https://astral.sh/uv/install.sh | sh)"; exit 1; }
@@ -35,4 +35,4 @@ hf() { uvx --from huggingface_hub hf download "$@"; }
         acestep-v15-turbo/model.safetensors acestep-v15-turbo/modeling_acestep_v15_turbo.py \
         acestep-v15-turbo/silence_latent.pt --local-dir ./checkpoints
 du -sh checkpoints/* .venv
-echo "Engine ready. Start the app: cd app && uv run layerdaw"
+echo "Engine ready. Start the app: cd app && uv run creamwafes"

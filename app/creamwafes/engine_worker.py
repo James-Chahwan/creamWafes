@@ -20,7 +20,7 @@ _protocol = os.fdopen(os.dup(sys.stdout.fileno()), "w", buffering=1)
 os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
 sys.stdout = sys.stderr
 
-ENGINE = Path(os.environ.get("LAYERDAW_ENGINE", Path(__file__).resolve().parents[2] / "engine" / "ACE-Step-1.5"))
+ENGINE = Path(os.environ.get("CREAMWAFES_ENGINE", Path(__file__).resolve().parents[2] / "engine" / "ACE-Step-1.5"))
 sys.path.insert(0, str(ENGINE))
 
 
@@ -59,20 +59,20 @@ def prefer_bf16_on_pre_ampere() -> None:
 
     ACE-Step picks fp16 there, and the DiT overflows: every latent comes back NaN. bf16 has
     fp32's range so it can't overflow, costs the same memory, and on a GTX 1660 its emulated
-    matmuls measured ~5x faster than fp16 ones. Set LAYERDAW_DTYPE=fp16 to opt out.
+    matmuls measured ~5x faster than fp16 ones. Set CREAMWAFES_DTYPE=fp16 to opt out.
     """
     import torch
 
     from acestep import gpu_config
     from acestep.core.generation.handler import memory_utils
 
-    if os.environ.get("LAYERDAW_DTYPE") == "fp16" or torch.cuda.get_device_capability()[0] >= 8:
+    if os.environ.get("CREAMWAFES_DTYPE") == "fp16" or torch.cuda.get_device_capability()[0] >= 8:
         return
     if not torch.cuda.is_bf16_supported(including_emulation=True):
         return
     gpu_config.cuda_supports_bfloat16 = lambda *_a, **_k: True
     memory_utils.cuda_supports_bfloat16 = lambda *_a, **_k: True
-    print("[layerdaw] pre-Ampere GPU: forcing emulated bfloat16 (fp16 overflows to NaN)", file=sys.stderr)
+    print("[creamwafes] pre-Ampere GPU: forcing emulated bfloat16 (fp16 overflows to NaN)", file=sys.stderr)
 
 
 def ensure_dit_quantized(handler) -> None:
@@ -94,7 +94,7 @@ def ensure_dit_quantized(handler) -> None:
         handler.model = wrapper
     kinds = {type(m.weight).__name__ for n, m in inner.named_modules()
              if n.startswith("decoder.layers") and hasattr(m, "weight") and m.weight is not None}
-    print(f"[layerdaw] decoder weight types after quantization: {sorted(kinds)}", file=sys.stderr)
+    print(f"[creamwafes] decoder weight types after quantization: {sorted(kinds)}", file=sys.stderr)
 
 
 # Only the base model can add/extract/complete a track; everything else sounds better (and is ~4×
@@ -223,7 +223,7 @@ def run_job(handlers: dict, job: dict) -> None:
 
 
 def main() -> None:
-    model = os.environ.get("LAYERDAW_MODEL", "acestep-v15-base")
+    model = os.environ.get("CREAMWAFES_MODEL", "acestep-v15-base")
     handlers: dict = {}
     try:
         t0 = time.perf_counter()
@@ -233,7 +233,7 @@ def main() -> None:
         traceback.print_exc()
         emit("fatal", message=str(exc))
         sys.exit(1)
-    if (ENGINE / "checkpoints" / TURBO / "model.safetensors").exists() and not os.environ.get("LAYERDAW_NO_TURBO"):
+    if (ENGINE / "checkpoints" / TURBO / "model.safetensors").exists() and not os.environ.get("CREAMWAFES_NO_TURBO"):
         try:  # both stay in system RAM; only the one generating moves onto the GPU
             t0 = time.perf_counter()
             handlers["turbo"], _ = load_handler(TURBO)

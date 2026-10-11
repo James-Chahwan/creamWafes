@@ -8,8 +8,9 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, 
                                QHBoxLayout, QLabel, QLineEdit, QPushButton)
 
 from .. import export
+from ..paths import DATA_DIR
 
-EXPORT_DIR = Path.home() / "Music" / "LayerDAW" / "exports"
+EXPORT_DIR = DATA_DIR / "exports"
 RATES = [("44.1 kHz (CD, streaming)", 44100), ("48 kHz (video, as made)", 48000)]
 # rough bytes per second, for the size estimate
 _SIZE = {"mp3": lambda q, r: q * 125, "m4a": lambda q, r: q * 125, "wav": lambda q, r: r * 2 * _BYTES[q],

@@ -9,11 +9,12 @@ import uuid
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, Signal
+from .paths import DATA_DIR
 
-ENGINE_DIR = Path(os.environ.get("LAYERDAW_ENGINE",
+ENGINE_DIR = Path(os.environ.get("CREAMWAFES_ENGINE",
                                  Path(__file__).resolve().parents[2] / "engine" / "ACE-Step-1.5"))
 WORKER = Path(__file__).with_name("engine_worker.py")
-LOG_FILE = Path.home() / "Music" / "LayerDAW" / "engine.log"
+LOG_FILE = DATA_DIR / "engine.log"
 
 
 class Engine(QObject):
@@ -35,7 +36,7 @@ class Engine(QObject):
         self._proc = QProcess(self)
         self._proc.setWorkingDirectory(str(ENGINE_DIR))
         env = QProcessEnvironment.systemEnvironment()
-        env.insert("LAYERDAW_ENGINE", str(ENGINE_DIR))
+        env.insert("CREAMWAFES_ENGINE", str(ENGINE_DIR))
         env.insert("PYTHONUNBUFFERED", "1")
         env.insert("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")  # less fragmentation on 6 GB
         self._proc.setProcessEnvironment(env)
@@ -44,8 +45,8 @@ class Engine(QObject):
         self._proc.finished.connect(self._on_exit)
 
     def start(self) -> None:
-        if os.environ.get("LAYERDAW_NO_ENGINE"):  # tests / inspecting: never load a model onto the GPU
-            self.status.emit("Engine disabled (LAYERDAW_NO_ENGINE)")
+        if os.environ.get("CREAMWAFES_NO_ENGINE"):  # tests / inspecting: never load a model onto the GPU
+            self.status.emit("Engine disabled (CREAMWAFES_NO_ENGINE)")
             return
         LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         if self._log_file:

@@ -31,8 +31,9 @@ from .pads import PadsMixin
 FLAVOUR_KEYS = {Qt.Key_G: "7th", Qt.Key_H: "sus4", Qt.Key_B: "sus2", Qt.Key_N: "add9"}
 from .timeline import Lanes, Ruler, TimelineState
 from .tracks import TrackHeaders
+from ..paths import DATA_DIR
 
-PROJECTS_DIR = Path.home() / "Music" / "LayerDAW"
+PROJECTS_DIR = DATA_DIR
 KEYS = [f"{n} {m}" for m in ("major", "minor") for n in
         ("C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B")]
 SHORTCUTS = """\
@@ -352,7 +353,7 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
     # --- refresh -----------------------------------------------------------------------
 
     def refresh(self, remix: bool = True) -> None:
-        self.setWindowTitle(f"LayerDAW — {self.project.name}")
+        self.setWindowTitle(f"creamWafes — {self.project.name}")
         if remix:
             self.player.set_mix(self.project.render(ready_only=True))
             self._fx_check()
@@ -564,7 +565,7 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
 
     def _open(self, folder: Path) -> None:
         if not (folder / "project.json").exists():
-            QMessageBox.warning(self, "Open song", f"{folder} isn't a LayerDAW song (no project.json).")
+            QMessageBox.warning(self, "Open song", f"{folder} isn't a creamWafes song (no project.json).")
             return
         self._autosave()
         self._set_project(Project.load(folder))

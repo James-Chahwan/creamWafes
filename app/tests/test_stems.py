@@ -3,7 +3,7 @@
 
 import os
 
-os.environ["LAYERDAW_NO_AUDIO"] = "1"
+os.environ["CREAMWAFES_NO_AUDIO"] = "1"
 
 from pathlib import Path  # noqa: E402
 

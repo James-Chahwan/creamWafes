@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Ask the running LayerDAW what's going on.
+"""Ask the running creamWafes what's going on.
 
-    tools/layerdaw-inspect.py state              JSON: tracks, pads, audio health, focus, recent log
-    tools/layerdaw-inspect.py screenshot [path]  the app saves a picture of its own window
-    tools/layerdaw-inspect.py log [n]            last n log lines
+    tools/creamwafes-inspect.py state              JSON: tracks, pads, audio health, focus, recent log
+    tools/creamwafes-inspect.py screenshot [path]  the app saves a picture of its own window
+    tools/creamwafes-inspect.py log [n]            last n log lines
 """
 
 import os
@@ -11,7 +11,7 @@ import socket
 import sys
 from pathlib import Path
 
-SOCKET = Path(os.environ.get("LAYERDAW_SOCKET") or Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "layerdaw.sock")
+SOCKET = Path(os.environ.get("CREAMWAFES_SOCKET") or Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "creamwafes.sock")
 
 
 def ask(command: str) -> str:
@@ -32,4 +32,4 @@ if __name__ == "__main__":
     try:
         print(ask(" ".join(sys.argv[1:]) or "state"))
     except (FileNotFoundError, ConnectionRefusedError):
-        sys.exit("LayerDAW isn't running (no inspect socket)")
+        sys.exit("creamWafes isn't running (no inspect socket)")

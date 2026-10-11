@@ -5,7 +5,7 @@ import os
 import shutil
 import subprocess
 
-os.environ["LAYERDAW_NO_AUDIO"] = "1"
+os.environ["CREAMWAFES_NO_AUDIO"] = "1"
 
 import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
@@ -13,9 +13,9 @@ from PySide6.QtCore import QTimer  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
 from harness import check, cleanup, demo_song, fake_engine, finish, open_window  # noqa: E402
-from layerdaw import export  # noqa: E402
-from layerdaw.model import SR  # noqa: E402
-from layerdaw.ui.export_dialog import ExportDialog  # noqa: E402
+from creamwafes import export  # noqa: E402
+from creamwafes.model import SR  # noqa: E402
+from creamwafes.ui.export_dialog import ExportDialog  # noqa: E402
 
 
 def probe(path):

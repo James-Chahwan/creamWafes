@@ -10,9 +10,9 @@ from pathlib import Path
 
 import torch
 
-APP = Path(__file__).resolve().parents[1] / "app" / "layerdaw"
+APP = Path(__file__).resolve().parents[1] / "app" / "creamwafes"
 sys.path.insert(0, str(APP))
-os.environ.setdefault("LAYERDAW_ENGINE", str(APP.parents[1] / "engine" / "ACE-Step-1.5"))
+os.environ.setdefault("CREAMWAFES_ENGINE", str(APP.parents[1] / "engine" / "ACE-Step-1.5"))
 import engine_worker  # noqa: E402  (redirects stdout to stderr; fine here)
 
 GiB = 2**30

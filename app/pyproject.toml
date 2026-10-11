@@ -1,7 +1,7 @@
 [project]
-name = "layerdaw"
+name = "creamwafes"
 version = "0.1.0"
-description = "Native mini-DAW with AI layer generation (ACE-Step)"
+description = "creamWafes: make sounds with local AI (ACE-Step), play them on pads, build songs from them"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "pyside6>=6.8",
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-layerdaw = "layerdaw.__main__:main"
+creamwafes = "creamwafes.__main__:main"
 
 [build-system]
 requires = ["hatchling"]

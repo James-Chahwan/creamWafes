@@ -1,8 +1,8 @@
 """Diagnostics: a session log, crash capture, and a local inspect socket for debugging the live app.
 
-    ~/Music/LayerDAW/session.log        everything the user did + errors + a health line every 5 s
-    $XDG_RUNTIME_DIR/layerdaw.sock      line commands: state | screenshot <path> | log [n] | restart
-                                        (tools/layerdaw-inspect.py is the client; only this user can connect)
+    ~/Music/creamWafes/session.log        everything the user did + errors + a health line every 5 s
+    $XDG_RUNTIME_DIR/creamwafes.sock      line commands: state | screenshot <path> | log [n] | restart
+                                        (tools/creamwafes-inspect.py is the client; only this user can connect)
 """
 
 from __future__ import annotations
@@ -18,13 +18,14 @@ from pathlib import Path
 
 from PySide6.QtCore import QProcess, QtMsgType, QTimer, qInstallMessageHandler
 from PySide6.QtNetwork import QLocalServer
+from .paths import DATA_DIR
 
-LOG_DIR = Path.home() / "Music" / "LayerDAW"
+LOG_DIR = DATA_DIR
 LOG_FILE = LOG_DIR / "session.log"
-# LAYERDAW_SOCKET lets test instances use their own socket instead of taking over the real app's
-SOCKET = Path(os.environ.get("LAYERDAW_SOCKET") or Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "layerdaw.sock")
+# CREAMWAFES_SOCKET lets test instances use their own socket instead of taking over the real app's
+SOCKET = Path(os.environ.get("CREAMWAFES_SOCKET") or Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "creamwafes.sock")
 
-log = logging.getLogger("layerdaw")
+log = logging.getLogger("creamwafes")
 _recent: deque[str] = deque(maxlen=400)
 
 
@@ -57,7 +58,7 @@ def setup_logging() -> None:
                 log.warning("qt: %s", message)
 
     qInstallMessageHandler(qt_messages)
-    log.info("LayerDAW started (pid %d)", os.getpid())
+    log.info("creamWafes started (pid %d)", os.getpid())
 
 
 def recent(n: int = 60) -> list[str]:
@@ -144,7 +145,7 @@ class Inspector:
                 if cmd == "state":
                     reply = json.dumps(self.state(), default=str)
                 elif cmd == "screenshot":
-                    path = arg or f"/tmp/layerdaw-{int(time.time())}.png"
+                    path = arg or f"/tmp/creamwafes-{int(time.time())}.png"
                     self.w.grab().save(path)
                     reply = path
                 elif cmd == "log":

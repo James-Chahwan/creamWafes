@@ -1,4 +1,4 @@
-"""Entry point: ``uv run layerdaw [project-folder]``."""
+"""Entry point: ``uv run creamwafes [project-folder]``."""
 
 import sys
 from pathlib import Path
@@ -6,7 +6,8 @@ from pathlib import Path
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
-from .diag import Inspector, setup_logging
+from .diag import Inspector, log, setup_logging
+from .paths import DATA_DIR, OLD_DATA_DIR, move_old_songs
 from .model import Project
 from .ui.main_window import MainWindow
 
@@ -24,9 +25,12 @@ def dark_palette() -> QPalette:
 
 
 def main() -> None:
+    moved = move_old_songs()
     setup_logging()
+    if moved:
+        log.info("moved songs from %s to %s (the app's new name)", OLD_DATA_DIR, DATA_DIR)
     app = QApplication(sys.argv)
-    app.setApplicationName("LayerDAW")
+    app.setApplicationName("creamWafes")
     app.setStyle("Fusion")
     app.setPalette(dark_palette())
     project = None

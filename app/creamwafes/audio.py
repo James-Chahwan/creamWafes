@@ -100,7 +100,7 @@ def render_note(note: Note, held_frames: int) -> np.ndarray:
 
 
 class _SilentStream:
-    """Stand-in for tests (LAYERDAW_NO_AUDIO=1): nothing reaches the speakers."""
+    """Stand-in for tests (CREAMWAFES_NO_AUDIO=1): nothing reaches the speakers."""
 
     latency, blocksize, active = 0.0, 0, True
 
@@ -142,7 +142,7 @@ class Player:
         self._open()
 
     def _open(self) -> None:
-        stream = _SilentStream if os.environ.get("LAYERDAW_NO_AUDIO") else sd.OutputStream
+        stream = _SilentStream if os.environ.get("CREAMWAFES_NO_AUDIO") else sd.OutputStream
         self._stream = stream(samplerate=SR, channels=2, dtype="float32", callback=self._callback,
                               **STREAM_SETTINGS[self._setting])
         self._stream.start()
@@ -152,7 +152,7 @@ class Player:
     def check_alive(self, now: float) -> str | None:
         """Call ~every UI tick. If the audio callback hasn't run for 0.5 s, reopen the stream
         (falling back to safer settings). Returns a message when it had to recover."""
-        if os.environ.get("LAYERDAW_NO_AUDIO"):
+        if os.environ.get("CREAMWAFES_NO_AUDIO"):
             return None
         count, since = self._last_seen
         if self.callbacks != count:

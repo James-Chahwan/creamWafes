@@ -2,7 +2,7 @@
 
 import os
 
-os.environ["LAYERDAW_NO_AUDIO"] = "1"
+os.environ["CREAMWAFES_NO_AUDIO"] = "1"
 
 import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
@@ -12,9 +12,9 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog  # noqa: E402
 
 from harness import SENT, activate, check, cleanup, deliver, demo_song, fake_engine, finish, open_window  # noqa: E402
-from layerdaw.model import SR, Project  # noqa: E402
-from layerdaw.ui import main_window as mw  # noqa: E402
-from layerdaw.ui.timeline import ROW_H  # noqa: E402
+from creamwafes.model import SR, Project  # noqa: E402
+from creamwafes.ui import main_window as mw  # noqa: E402
+from creamwafes.ui.timeline import ROW_H  # noqa: E402
 
 song = demo_song()
 drums = sf.read(song / "audio" / next(p.name for p in (song / "audio").iterdir() if "drums" in p.name),
@@ -72,12 +72,12 @@ QTest.keyClick(w.lanes, Qt.Key_Z, Qt.ControlModifier)
 check(take not in w.project.tracks, "Ctrl+Z removes the pad take")
 
 # --- hold mode: sustain while the key is down, fade on release; one-shots ignore key-up
-from layerdaw.audio import RELEASE  # noqa: E402
+from creamwafes.audio import RELEASE  # noqa: E402
 
 pad4 = w.project.pads[4]
 check(pad4.mode == "oneshot", "drum chops default to one-shot")
 slice_len = len(pad4.buffer())
-from layerdaw.model import load_audio  # noqa: E402
+from creamwafes.model import load_audio  # noqa: E402
 src = load_audio(pad4.clip.path)
 a = int(round(pad4.clip.offset * SR))
 
@@ -175,7 +175,7 @@ check(abs(w.project.pads[2].clip.length - w.project.bar_seconds) < 0.01, "Replac
 w.state.selection = None
 pump(times=600)
 from PySide6.QtCore import QTimer  # noqa: E402
-from layerdaw.ui import creative  # noqa: E402
+from creamwafes.ui import creative  # noqa: E402
 
 
 def drive(dialog_cls, action):
@@ -241,7 +241,7 @@ check(w.project.pads[6].name.startswith("drums"), "…and the next Ctrl+Z undoes
 
 # a kit = one clean example of each drum sound, named, in drum-machine order
 from harness import drum_loop  # noqa: E402
-from layerdaw import chop  # noqa: E402
+from creamwafes import chop  # noqa: E402
 
 loop = drum_loop()
 roles = [r for _, _, r, _ in chop.kit(loop, 60 / 120, 8)]

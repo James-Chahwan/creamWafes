@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-os.environ["LAYERDAW_NO_AUDIO"] = "1"
+os.environ["CREAMWAFES_NO_AUDIO"] = "1"
 
 import numpy as np  # noqa: E402
 from PySide6.QtCore import QTimer  # noqa: E402
@@ -13,11 +13,11 @@ import soundfile as sf  # noqa: E402
 
 import harness  # noqa: E402
 from harness import SENT, check, cleanup, deliver, demo_song, drum_loop, finish, open_window  # noqa: E402
-from layerdaw import sounds  # noqa: E402
-from layerdaw.model import SR  # noqa: E402
-from layerdaw.ui import creative  # noqa: E402
+from creamwafes import sounds  # noqa: E402
+from creamwafes.model import SR  # noqa: E402
+from creamwafes.ui import creative  # noqa: E402
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "layerdaw"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "creamwafes"))
 import engine_worker  # noqa: E402
 
 check(engine_worker.pick_model({"base": 1, "turbo": 2}, "lego") == "base" and
@@ -202,9 +202,9 @@ check(all(p.play == "chord" and p.clip is not None for p in chords) and len({p.d
 filled = [i for i, p in enumerate(w.project.pads) if p.clip is not None]
 check(len(filled) >= 12 and all(w.pad_panel.grid.buttons[i].generating is None for i in range(16)),
       f"the bank fills the pads ({len(filled)}/16 got a sound from this fake take)")
-if os.environ.get("LAYERDAW_SHOTS"):
+if os.environ.get("CREAMWAFES_SHOTS"):
     QApplication.processEvents()
-    w.pads_dock.grab().save(f"{os.environ['LAYERDAW_SHOTS']}/bank.png")
+    w.pads_dock.grab().save(f"{os.environ['CREAMWAFES_SHOTS']}/bank.png")
 
 w.close()
 cleanup(song)
