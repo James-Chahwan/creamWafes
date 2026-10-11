@@ -36,7 +36,10 @@ minutes); the generate buttons unlock when the status bar says "Engine ready".
   project BPM/key. Or **✦ New idea** (a whole groove from text), or drag audio files in.
 - **＋ Add layer** on a song: the engine hears every unmuted track and returns a **new take of the whole
   song with the part added**; the tracks it heard get muted. Every result is a new take — nothing is
-  overwritten — so mute/unmute to compare.
+  overwritten — so mute/unmute to compare. For **vocals** (ticked by default), drums and bass you can
+  **keep only the new part**: it's separated out of the result (Demucs) onto its own track and your
+  tracks stay unmuted. Right-click any track → **Keep only ▸ Vocals / Drums / Bass / Everything else**
+  splits an existing take the same way (a few seconds).
 - **Right-click** the timeline: *Extend to here* (continue a take/the song up to that bar),
   *Redo bars X–Y* (regenerate just the selected section), split, duplicate, rename, export, delete.
 - **Drag clips** to move them (snaps to beats; Alt = free). Drag empty lane or ruler = select bars.

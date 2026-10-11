@@ -107,14 +107,70 @@ def pick_model(handlers: dict, task: str) -> str:
     return "turbo" if task not in BASE_ONLY and "turbo" in handlers else "base"
 
 
+_separator = None
+
+
+def separate(path: str, stem: str, out_dir: str) -> str:
+    """Pull one stem ("vocals", "drums", "bass" or "other") out of a mix with Demucs htdemucs (MIT).
+    ACE-Step's lego returns the whole song with the new part in it; this keeps just the part."""
+    global _separator
+    import julius
+    import numpy as np
+    import soundfile as sf
+    import torch
+    try:
+        from demucs.apply import apply_model
+        from demucs.pretrained import get_model
+    except ImportError as exc:
+        raise RuntimeError("Stem separation isn't installed in the engine — run tools/setup_engine.sh") from exc
+    if _separator is None:
+        _separator = get_model("htdemucs").eval()
+    model = _separator
+    audio, sr = sf.read(path, dtype="float32", always_2d=True)
+    x = torch.from_numpy(np.ascontiguousarray(audio.T))
+    if x.shape[0] == 1:
+        x = x.repeat(2, 1)
+    if sr != model.samplerate:
+        x = julius.resample_frac(x, sr, model.samplerate)
+    ref = x.mean(0)
+    mean, std = ref.mean(), ref.std() + 1e-8
+
+    def run(device: str):
+        with torch.no_grad():
+            return apply_model(model.to(device), ((x - mean) / std)[None].to(device), split=True,
+                               overlap=0.25, progress=False)[0].cpu()
+    try:
+        out = run("cuda" if torch.cuda.is_available() else "cpu")
+    except torch.cuda.OutOfMemoryError:  # the generator is still on the GPU: do it on the CPU instead
+        torch.cuda.empty_cache()
+        out = run("cpu")
+    finally:
+        model.to("cpu")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    y = out[model.sources.index(stem)] * std + mean
+    if sr != model.samplerate:
+        y = julius.resample_frac(y, model.samplerate, sr)
+    dest = Path(out_dir) / f"{Path(path).stem}-{stem}.wav"
+    sf.write(dest, y.numpy().T[:len(audio)], sr, subtype="FLOAT")
+    return str(dest)
+
+
 def run_job(handlers: dict, job: dict) -> None:
     from acestep.inference import GenerationConfig, GenerationParams, generate_music
 
     job_id = job["id"]
+    if job["task"] == "separate":  # no generating: split existing audio
+        emit("started", id=job_id, model="demucs")
+        t0 = time.perf_counter()
+        path = separate(job["params"]["src"], job["params"]["stem"], job["out_dir"])
+        emit("done", id=job_id, path=path, seconds=round(time.perf_counter() - t0, 1), model="demucs")
+        return
     which = pick_model(handlers, job["task"])
     handler = handlers[which]
     emit("started", id=job_id, model=which)
     fields = dict(job["params"])
+    isolate = fields.pop("isolate", None)  # keep only this stem of the result (see separate())
     if which == "turbo":  # turbo is distilled for 8 steps; its docs recommend shift 3
         fields["inference_steps"] = min(int(fields.get("inference_steps", 8)), 8)
         fields.setdefault("shift", 3.0)
@@ -130,7 +186,11 @@ def run_job(handlers: dict, job: dict) -> None:
         emit("error", id=job_id, message=str(result.error))
         return
     audio = result.audios[0]
-    emit("done", id=job_id, path=audio["path"], seed=audio["params"].get("seed"),
+    path = audio["path"]
+    if isolate:
+        progress(0.98, f"keeping only the {isolate}")
+        path = separate(path, isolate, job["out_dir"])
+    emit("done", id=job_id, path=path, mix_path=audio["path"], seed=audio["params"].get("seed"),
          seconds=round(time.perf_counter() - t0, 1), model=which)
 
 

@@ -18,6 +18,9 @@ SR = 48000  # ACE-Step renders at 48 kHz, so the whole project runs at that rate
 LAYER_TYPES = ["vocals", "backing_vocals", "drums", "bass", "guitar", "keyboard",
                "percussion", "strings", "synth", "fx", "brass", "woodwinds"]
 VOCAL_TYPES = {"vocals", "backing_vocals"}
+# parts the engine can separate out of a generated mix (Demucs stems), and the kind a stem becomes
+STEM_OF = {"vocals": "vocals", "backing_vocals": "vocals", "drums": "drums", "percussion": "drums", "bass": "bass"}
+STEM_KIND = {"vocals": "vocals", "drums": "drums", "bass": "bass", "other": "audio"}
 AUDIO_EXTENSIONS = {".wav", ".flac", ".mp3", ".ogg", ".aiff", ".aif"}
 
 _file_cache: dict[Path, np.ndarray] = {}

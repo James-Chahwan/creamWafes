@@ -102,7 +102,7 @@ def fake_engine(source: np.ndarray | None = None) -> None:
 
     def submit(self, task, params, out_dir):
         out_dir.mkdir(parents=True, exist_ok=True)
-        n = int(params["duration"] * SR)
+        n = int(params.get("duration", 10.0) * SR)
         audio = np.resize(source, (n, 2)) if source is not None else np.random.default_rng(0).normal(0, .1, (n, 2))
         path = out_dir / f"fake{len(SENT)}.wav"
         sf.write(path, audio.astype(np.float32), SR)

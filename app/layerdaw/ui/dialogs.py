@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
                                QLabel, QLineEdit, QPlainTextEdit, QRadioButton, QSpinBox, QVBoxLayout)
 
-from ..model import LAYER_TYPES, VOCAL_TYPES
+from ..model import LAYER_TYPES, STEM_OF, VOCAL_TYPES
 
 LYRICS_HINT = "[Verse]\nfirst line of the verse\nsecond line\n\n[Chorus]\n..."
 _MEMORY: dict[str, dict] = {}  # last accepted values per dialog type, for this session
@@ -103,13 +103,19 @@ class LayerDialog(_GenerateDialog):
                           "at the project tempo and key. Later layers will listen to it.")
         else:
             note = QLabel("The engine listens to every unmuted track and returns a new take of the\n"
-                          "whole song with this part added. The tracks it heard get muted.")
+                          "whole song with this part added. The tracks it heard get muted —\n"
+                          "unless you keep only the new part (vocals, drums, bass).")
         note.setStyleSheet("color: #8a93a0;")
         self.form.addRow(note)
         self.form.addRow("Instrument", self.kind)
         self.form.addRow("Describe it", self.prompt)
         self.lyrics_label = QLabel("Lyrics")
         self.form.addRow(self.lyrics_label, self.lyrics)
+        self.isolate = QCheckBox()
+        self.isolate.setToolTip("The engine always returns the whole song with the part in it; this separates the "
+                                "new part out, so it lands on its own track and your tracks stay as they are")
+        if not empty:
+            self.form.addRow("", self.isolate)
         if empty:
             self.form.addRow("Length (bars)", self.bars)
         else:
@@ -132,6 +138,11 @@ class LayerDialog(_GenerateDialog):
         sung = kind in VOCAL_TYPES
         self.lyrics.setVisible(sung)
         self.lyrics_label.setVisible(sung)
+        stem = STEM_OF.get(kind)
+        self.isolate.setVisible(stem is not None and not self.empty)
+        self.isolate.setText(f"Keep only the new {kind.replace('_', ' ')} (your tracks stay unmuted)")
+        # vocals: always wanted on their own. Drums/bass: the song's own drums/bass would come along too
+        self.isolate.setChecked(sung)
         self.adjustSize()
 
     def values(self) -> dict:
@@ -139,7 +150,8 @@ class LayerDialog(_GenerateDialog):
         return {"kind": kind, "prompt": self.prompt.text().strip(),
                 "lyrics": self._lyrics_text() if kind in VOCAL_TYPES else "[Instrumental]",
                 "steps": self.steps.value(), "seed": self.seed.value(),
-                "only_selection": self.only.isChecked(), "bars": self.bars.value()}
+                "only_selection": self.only.isChecked(), "bars": self.bars.value(),
+                "isolate": STEM_OF.get(kind) if self.isolate.isChecked() and not self.empty else None}
 
 
 class IdeaDialog(_GenerateDialog):

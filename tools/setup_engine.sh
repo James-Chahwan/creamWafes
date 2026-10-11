@@ -17,6 +17,12 @@ git -C "$ENGINE" fetch --quiet origin
 git -C "$ENGINE" checkout --quiet "$ACE_COMMIT"
 
 (cd "$ENGINE" && UV_HTTP_TIMEOUT=300 uv sync --python 3.12)
+# Stem separation (Demucs, MIT): keeps just the new vocals/drums/bass out of a generated mix.
+# --no-deps so it can't swap out the engine's CUDA build of torch (it only needs these small extras).
+# (after uv sync, which removes anything not in ACE-Step's own lock file)
+uv pip install --python "$ENGINE/.venv/bin/python" --no-deps demucs==4.0.1 julius dora-search openunmix \
+    omegaconf "antlr4-python3-runtime==4.9.3" retrying submitit treetable cloudpickle
+"$ENGINE/.venv/bin/python" -c "from demucs.pretrained import get_model; get_model('htdemucs')"  # ~80 MB, cached
 
 cd "$ENGINE"
 hf() { uvx --from huggingface_hub hf download "$@"; }

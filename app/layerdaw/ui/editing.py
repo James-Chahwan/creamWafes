@@ -180,6 +180,9 @@ class EditMixin:
         elif track.gen:
             items.append(("Regenerate (new take)", lambda: self.regenerate(track)))
         items.append((f"Extend '{track.name}'", self._extend_items(track, t)))
+        items.append(("Keep only (separate it)", [(label, lambda s=stem: self.isolate_track(track, s)) for label, stem in (
+            ("Vocals", "vocals"), ("Drums", "drums"), ("Bass", "bass"),
+            ("Everything else (no vocals, drums or bass)", "other"))]))
         if self.state.selection:
             items.append((f"Redo {self._sel_text()} of this track", lambda: self.redo_bars(track)))
         items += [("Duplicate track", lambda: self.duplicate_track(track)),

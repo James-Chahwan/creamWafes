@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QMessageBox
 import numpy as np
 
 from ..diag import log
-from ..model import SR, VOCAL_TYPES, Clip, Track
+from ..model import SR, STEM_KIND, VOCAL_TYPES, Clip, Track
 from .dialogs import IdeaDialog, LayerDialog
 
 SOLO_HINTS = {
@@ -54,7 +54,8 @@ class GenerateMixin:
             self._submit_solo(v["kind"], v["prompt"], v["lyrics"], v["steps"], v["seed"], v["bars"])
         else:
             span = self.state.selection if v["only_selection"] else None
-            self._submit_layer(v["kind"], v["prompt"], v["lyrics"], v["steps"], v["seed"], span, context)
+            self._submit_layer(v["kind"], v["prompt"], v["lyrics"], v["steps"], v["seed"], span, context,
+                               isolate=v.get("isolate"))
 
     def extend_to(self, track: Track | None, t: float) -> None:
         """Continue ``track`` (or everything audible) from its end up to time ``t``."""
@@ -130,6 +131,8 @@ class GenerateMixin:
         name = track.name.split(" #")[0]
         if mode == "song":  # a part of a song made from pads: a new pattern variation, re-rendered in place
             self.render_song_part(track, vary=True)
+        elif mode == "separate":
+            self.engine_label.setText("This was separated out of another take — regenerate that one instead")
         elif mode == "solo":
             self._submit_solo(g["kind"], g["prompt"], g["lyrics"], g["steps"], -1, g["bars"], mute=[track])
         elif mode == "idea":
@@ -145,8 +148,9 @@ class GenerateMixin:
             if not context:
                 QMessageBox.information(self, "Can't regenerate", "The tracks this take was built from are gone.")
                 return
+            isolate = g.get("isolate")  # a kept-only part replaces just itself; a full take replaces the mix
             self._submit_layer(g["kind"], g["prompt"], g["lyrics"], g["steps"], -1, g.get("span"), context,
-                               mute=[track, *context])
+                               mute=[track] if isolate else [track, *context], isolate=isolate)
 
     # --- request builders --------------------------------------------------------------
 
@@ -163,18 +167,35 @@ class GenerateMixin:
         self._submit("text2music", params, gen, name=kind, mute=mute or [])
 
     def _submit_layer(self, kind, prompt, lyrics, steps, seed, span, context: list[Track],
-                      mute: list[Track] | None = None) -> None:
-        """Lego: the engine hears ``context`` and returns the whole song with the new part in it."""
+                      mute: list[Track] | None = None, isolate: str | None = None) -> None:
+        """Lego: the engine hears ``context`` and returns the whole song with the new part in it.
+        ``isolate`` ("vocals"/"drums"/"bass"): separate just that stem out, so the result is the new
+        part alone and the context stays unmuted."""
         wav = self.project.write_wav(self.project.render(context, self.project.length), "context")
         params = self._base_params(prompt or kind, lyrics, steps, seed)
         params.update(src_audio=str(wav), duration=self.project.length,
                       instruction=f"Generate the {kind.upper()} track based on the audio context:")
         if span:
             params.update(repainting_start=span[0], repainting_end=span[1])
+        if isolate:
+            params["isolate"] = isolate
         gen = {"mode": "layer", "kind": kind, "prompt": prompt, "lyrics": lyrics, "steps": steps,
-               "span": list(span) if span else None, "context": [t.name for t in context]}
+               "span": list(span) if span else None, "context": [t.name for t in context], "isolate": isolate}
         self._submit("lego", params, gen, name=f"+{kind}" + (f" · {prompt[:24]}" if prompt else ""),
-                     mute=mute if mute is not None else context)
+                     mute=mute if mute is not None else ([] if isolate else context))
+
+    def isolate_track(self, track: Track, stem: str) -> None:
+        """Right-click → Keep only: split a take into stems and keep one, as a new take (this one muted)."""
+        from .. import fx
+        start, audio = fx.raw(track)  # dry: its sound settings come back on the new take
+        if not len(audio):
+            return
+        wav = self.project.write_wav(audio, "separate-src")
+        gen = {"mode": "separate", "kind": STEM_KIND.get(stem, track.kind) if stem != "other" else track.kind,
+               "prompt": track.prompt, "stem": stem, "start": start / SR, "inherit": True}
+        label = {"other": "everything else"}.get(stem, stem)
+        self._submit("separate", {"src": str(wav), "stem": stem, "duration": len(audio) / SR}, gen,
+                     name=f"{track.name} · {label}", mute=[track])
 
     def _submit_repaint(self, gen: dict, name: str, mute: list[Track]) -> None:
         params = self._base_params(gen["prompt"], gen["lyrics"], gen["steps"], -1)
@@ -238,7 +259,8 @@ class GenerateMixin:
             return
         self._checkpoint(f"Generate {job['name']}")
         trim = job["gen"].get("trim_to")
-        clip = Clip(Path(ev["path"]), length=trim)  # extensions are generated long and trimmed back
+        clip = Clip(Path(ev["path"]), start=job["gen"].get("start", 0.0),  # a separated take sits where it was
+                    length=trim)  # extensions are generated long and trimmed back
         track = Track(name=self._unique_name(job["name"]), kind=job["kind"], clips=[clip],
                       prompt=job["prompt"], gen=job["gen"])
         if job["gen"].get("inherit") and len(job["mute"]) == 1:  # a redo of one layer sounds like that layer
