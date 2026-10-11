@@ -131,6 +131,7 @@ class PadButton(QWidget):
         p.setBrush(base)
         p.drawRoundedRect(r, 7, 7)
         inner = r.adjusted(7, 4, -6, -5)
+        big_rect = None
         if self.big is not None:
             p.setPen(QColor("#f1ecfa"))
             p.drawText(inner, Qt.AlignRight | Qt.AlignBottom, self.big[1])
@@ -140,7 +141,9 @@ class PadButton(QWidget):
             line = p.fontMetrics().height()
             p.save()
             p.setFont(font)
-            p.drawText(r.adjusted(0, line * 0.5, 0, -line * 0.9), Qt.AlignCenter, self.big[0])  # clear of the name
+            big_box = r.adjusted(0, line * 0.5, 0, -line * 0.9)  # clear of the name
+            p.drawText(big_box, Qt.AlignCenter, self.big[0])
+            big_rect = QRectF(p.fontMetrics().boundingRect(big_box.toRect(), Qt.AlignCenter, self.big[0]))
             p.restore()
         else:
             env = self._envelope(int(r.width()) - 12) if pad is not None and pad.clip is not None else None
@@ -152,9 +155,15 @@ class PadButton(QWidget):
         p.setPen(QColor("#e6e9ee") if filled else QColor("#6c7480"))
         p.drawText(inner, Qt.AlignLeft | Qt.AlignTop, pad_key(self.index))
         if filled:
-            tags = [pad.mode if pad.mode != "oneshot" else "", f"{pad.pitch:+d}st" if pad.pitch else "",
-                    f"{20 * np.log10(pad.gain):+.0f}dB" if abs(20 * np.log10(pad.gain)) >= 0.5 else ""]
-            tag = " ".join(t for t in tags if t)
+            mode = pad.mode if pad.mode != "oneshot" else ""
+            pitch = f"{pad.pitch:+d}st" if pad.pitch else ""
+            gain = f"{20 * np.log10(pad.gain):+.0f}dB" if abs(20 * np.log10(pad.gain)) >= 0.5 else ""
+            # longest first; on chord/note pads, step down until it doesn't run into the big chord name
+            for parts in ((mode, pitch, gain), (pitch, gain), (mode,), ()):
+                tag = " ".join(t for t in parts if t)
+                box = QRectF(p.fontMetrics().boundingRect(inner.toRect(), Qt.AlignRight | Qt.AlignTop, tag))
+                if not tag or big_rect is None or not box.intersects(big_rect):
+                    break
             if tag:
                 p.drawText(inner, Qt.AlignRight | Qt.AlignTop, tag)
             name = p.fontMetrics().elidedText(pad.name or ("synth" if pad.clip is None else ""), Qt.ElideRight,

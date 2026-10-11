@@ -42,9 +42,13 @@ It's deliberately *not* a "type a sentence, get a song" app. The AI is a sound s
 | Soundraw · Beatoven.ai · Mubert · Loudly · Soundful | Background / royalty-free tracks | Cloud | For videos, streams, ads |
 | AIVA | Orchestral / cinematic scores | Cloud | MIDI export |
 | Stable Audio 2.5 / 3 | Instrumental audio | Cloud API; v3 open weights | v3 makes up to 6:20, no vocals |
-| ACE-Step 1.5 | Songs, layers, repaint | **Local**, MIT | What creamWafes runs on (XL needs 12–20 GB) |
-| HeartMuLa · YuE · DiffRhythm 2 · SongGeneration 2 · MusicGen | Song generation research models | Local, open weights | Mostly want 12–16 GB+ VRAM; some non-commercial |
+| 💛 **ACE-Step 1.5** | **Songs, layers, repaint** | **Local, MIT** | **What creamWafes runs on** (XL needs 12–20 GB) |
+| 💛 **HeartMuLa · YuE · DiffRhythm 2 · SongGeneration 2 · MusicGen** | **Song generation models** | **Local, open weights** | Mostly want 12–16 GB+ VRAM; some non-commercial |
 | **creamWafes** | **Sounds → pads → your song, every bit editable** | **Local, 6 GB VRAM** (GTX 1660 SUPER) | **MIT, free** |
+
+💛 **Not these.** ACE-Step and the open models are sick cunts — fucking awesome: free, open weights, running on
+your own machine. creamWafes only exists because ACE-Step put theirs out there. (Stable Audio 3's open weights
+count too.)
 
 ## What it does
 

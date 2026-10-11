@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QSlider, QStackedWidget,
                                QToolButton, QVBoxLayout, QWidget)
 
@@ -54,8 +55,10 @@ class TrackHeader(QFrame):
         self.name = QLabel()
         self.name.setStyleSheet("font-weight: 600;")
         self.name.setToolTip(self._tooltip())
-        self.name.setText(self.name.fontMetrics().elidedText(
-            ("[busy] " if busy else "") + track.name, Qt.ElideRight, HEADER_W - 156))
+        bold = QFont(self.name.font())
+        bold.setWeight(QFont.DemiBold)  # measure as it's drawn (the style sheet makes it bold)
+        self.name.setText(QFontMetrics(bold).elidedText(
+            ("[busy] " if busy else "") + track.name, Qt.ElideRight, HEADER_W - 172))  # beside M S fx ⟳ ⋯
         self.editor = QLineEdit(track.name)
         self.editor.editingFinished.connect(self._finish_rename)
         self.name_stack = QStackedWidget()
