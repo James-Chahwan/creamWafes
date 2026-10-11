@@ -107,6 +107,30 @@ def pick_model(handlers: dict, task: str) -> str:
     return "turbo" if task not in BASE_ONLY and "turbo" in handlers else "base"
 
 
+def release_gpu(handlers: dict) -> None:
+    """Give the GPU back between jobs. ACE-Step offloads each model to the CPU after use, but its VAE
+    uses (old-style) weight norm, which recomputes ``weight`` before every forward and keeps it as a
+    plain attribute — so ``.to("cpu")`` leaves ~330 MB of those copies on the GPU after every job,
+    and a long add-layer right after another runs out of memory on a 6 GB card. They're rebuilt on
+    the next forward anyway, so move any such stray CUDA tensor off the GPU, then empty the cache."""
+    import gc
+    import torch
+    if not torch.cuda.is_available():
+        return
+    for handler in handlers.values():
+        for part in vars(handler).values():
+            if not isinstance(part, torch.nn.Module):
+                continue
+            for module in part.modules():
+                owned = set(module._parameters) | set(module._buffers)
+                on_cpu = all(not p.is_cuda for p in module.parameters(recurse=False))
+                for name, value in list(vars(module).items()):
+                    if torch.is_tensor(value) and value.is_cuda and name not in owned and on_cpu:
+                        setattr(module, name, value.detach().to("cpu"))
+    gc.collect()
+    torch.cuda.empty_cache()
+
+
 _separator = None
 
 
@@ -182,6 +206,10 @@ def run_job(handlers: dict, job: dict) -> None:
 
     t0 = time.perf_counter()
     result = generate_music(handler, None, params, config, save_dir=job["out_dir"], progress=progress)
+    if not result.success and "out of memory" in str(result.error).lower():  # clear the GPU and try once more
+        release_gpu(handlers)
+        progress(0.0, "GPU was full: cleared it, trying again")
+        result = generate_music(handler, None, params, config, save_dir=job["out_dir"], progress=progress)
     if not result.success:
         emit("error", id=job_id, message=str(result.error))
         return
@@ -224,6 +252,8 @@ def main() -> None:
         except Exception as exc:  # noqa: BLE001 - one bad job shouldn't kill the worker
             traceback.print_exc()
             emit("error", id=job.get("id"), message=str(exc))
+        finally:
+            release_gpu(handlers)
 
 
 if __name__ == "__main__":
