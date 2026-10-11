@@ -15,6 +15,37 @@ It's deliberately *not* a "type a sentence, get a song" app. The AI is a sound s
 
 ![creamWafes: timeline, Layer panel, pads and tray](docs/screenshot.png)
 
+## Why this exists
+
+> I tried a bunch of the servcies from the below table and could not get the thing i wanted to make
+> once, not even remotely possible and talk about a shit experience to long to never generate to the
+> right got damn thing and no way to edit it to what you wanted and so many damn one shot song tools,
+> all these billions of dollars made all these companies fucking weak as shit to making actual useful
+> tools holy fuck, so i spent like 8 hours making this and eating chocolate cocoa wafers with vanllia
+> cream (hence name) thats how spiteful this is im just sick of your shit and theres no way i can get a
+> refund for using your shit ass services you fucking cunts, also this works on 6gb of vram card a
+> fucking 1660 super you fucking shit cunts needs data centres to produce shit fuck i hate you, do better
+
+### The breakdown (October 2026)
+
+| Service | What it does | Where it runs | Notes |
+|---|---|---|---|
+| Suno | Text/lyrics → whole song | Cloud | v6 (Sept 2026) made with Warner, BMG, Believe; Suno Studio browser DAW |
+| Udio | Text/lyrics → whole song | Cloud | Settled with UMG; reviews in 2026 report downloads disabled |
+| Mureka | Text/lyrics → whole song | Cloud, API | V9.5, "O3" model |
+| ElevenLabs Music | Text → whole song | Cloud, API | Music v2 (May 2026) |
+| Google Lyria 3 / 3.5 (Flow Music) | Text → ~3 min song | Cloud, API | SynthID watermark in everything |
+| Producer.ai (was Riffusion) | Chat → song | Cloud | Folded into Google Labs (Feb 2026) |
+| MiniMax Music | Text → whole song | Cloud, API | Reportedly closed to new API customers (Aug 2026) |
+| Alibaba HappyShrimp | Text → whole song | Cloud | Beta (Aug 2026) |
+| Boomy | One-click songs | Cloud | Free tier limits downloads/monetising |
+| Soundraw · Beatoven.ai · Mubert · Loudly · Soundful | Background / royalty-free tracks | Cloud | For videos, streams, ads |
+| AIVA | Orchestral / cinematic scores | Cloud | MIDI export |
+| Stable Audio 2.5 / 3 | Instrumental audio | Cloud API; v3 open weights | v3 makes up to 6:20, no vocals |
+| ACE-Step 1.5 | Songs, layers, repaint | **Local**, MIT | What creamWafes runs on (XL needs 12–20 GB) |
+| HeartMuLa · YuE · DiffRhythm 2 · SongGeneration 2 · MusicGen | Song generation research models | Local, open weights | Mostly want 12–16 GB+ VRAM; some non-commercial |
+| **creamWafes** | **Sounds → pads → your song, every bit editable** | **Local, 6 GB VRAM** (GTX 1660 SUPER) | **MIT, free** |
+
 ## What it does
 
 **Pads**
