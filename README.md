@@ -176,6 +176,10 @@ over a local socket only your user can open (handy for debugging what someone se
 Releases are numbered like an album in progress: **v0.1, v0.2, …**, and each one comes with a song made
 in that version, attached to the release. When the album is finished, the version goes to **v1.1**.
 
+| Release | The song |
+|---|---|
+| [**v0.1**](https://github.com/James-Chahwan/creamWafes/releases/tag/v0.1) | the first one, 1:39 — it's the video at the top; [download the MP3](https://github.com/James-Chahwan/creamWafes/releases/download/v0.1/creamWafes-v0.1.mp3) |
+
 ## Credits
 
 Built on [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) (MIT), [Demucs](https://github.com/facebookresearch/demucs)
