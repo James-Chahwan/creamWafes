@@ -142,7 +142,11 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         self.a_prog = A("Write a chord progression…", self.open_progression_writer, None,
                         "A progression for a mood, on the chord pads or the timeline")
         self.a_chord_sound = A("Generate a sound for the selected pad…", lambda: self.design_pad_sound(self.primary_pad),
-                               None, "Describe one sound; pick the best of 4 candidates")
+                               None, "Describe one sound (or loop); genre, mood, length; pick from 4 or 8 takes")
+        self.a_sounds = A("Generate sounds onto the selected pads…", lambda: self.generate_sounds(self._targets()),
+                          None, "One kind of sound or loop, a different take on each selected pad")
+        self.a_bank = A("✦ Fill the selected pads (a whole bank)…", lambda: self.fill_bank(self._targets()), None,
+                        "One vibe → drum kit, 808, chords, melody, hook, fx across the selected pads")
         self.a_pads = self.pads_dock.toggleViewAction()
         self.a_pads.setText("▦ Pads")
         self.a_pads.setShortcut(QKeySequence("P"))
@@ -183,7 +187,7 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         self.extend_menu.aboutToShow.connect(self._fill_extend_menu)
         gen.addAction(self.a_song)
         gen.addSeparator()
-        gen.addActions([self.a_chord_sound, self.a_kit, self.a_hooks])
+        gen.addActions([self.a_bank, self.a_chord_sound, self.a_sounds, self.a_kit, self.a_hooks])
         gen.addSeparator()
         gen.addAction(self.a_prog)
         gen.addSeparator()
@@ -291,6 +295,7 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         ins.renamed.connect(self.rename_pad)
         ins.category_set.connect(self.set_pad_category)
         ins.generate.connect(lambda: self.design_pad_sound(self.primary_pad))
+        ins.variation.connect(lambda: self.design_pad_sound(self.primary_pad, vary=True))
         ins.replace.connect(self.replace_pad)
         ins.audition.connect(lambda: self._audition(self.primary_pad))
         ins.play_set.connect(self.set_pad_play)
@@ -301,6 +306,8 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         ins.pitch_step.connect(self.nudge_pad_pitch)
         ins.gain_step.connect(self.nudge_pad_gain)
         ins.make_song.connect(self.open_song_maker)
+        ins.bank.connect(lambda: self.fill_bank(sorted(self.selected_pads)))
+        ins.sounds.connect(lambda: self.generate_sounds(sorted(self.selected_pads)))
         ins.kit.connect(lambda: self.generate_kit(sorted(self.selected_pads)))
         ins.hooks.connect(lambda: self.generate_hooks())
         ins.progression.connect(self.open_progression_writer)

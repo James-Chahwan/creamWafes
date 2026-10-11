@@ -463,11 +463,13 @@ class PadsMixin:
         if not ok or not text.strip():
             return
         self._last_kit = text.strip()
+        self._submit_kit(text.strip(), targets)
+
+    def _submit_kit(self, text: str, targets: list[int]) -> None:
         bars = max(4, int(np.ceil(12 / self.project.bar_seconds)))  # the engine needs ≥10 s
-        params = self._base_params(f"{text.strip()}, solo drum kit, drum one-shots, clean studio drums",
-                                   "[Instrumental]", 32, -1)
+        params = self._base_params(f"{text}, solo drum kit, drum one-shots, clean studio drums", "[Instrumental]", 32, -1)
         params.update(duration=bars * self.project.bar_seconds, instrumental=True)
-        gen = {"mode": "kit", "kind": "drums", "prompt": text.strip(), "to_pads": True, "targets": targets}
+        gen = {"mode": "kit", "kind": "drums", "prompt": text, "to_pads": True, "targets": targets}
         self._submit("text2music", params, gen, name="kit → pads", mute=[], pads=targets)
 
     # --- right-click on a pad ------------------------------------------------------------------
@@ -480,9 +482,13 @@ class PadsMixin:
         key = PAD_TO_KEY[index]
         items = []
         if many:
-            items += [(f"✦ Make a song from these {len(sel)} pads…", self.open_song_maker), None]
+            items += [(f"✦ Make a song from these {len(sel)} pads…", self.open_song_maker),
+                      (f"✦ Fill these {len(sel)} pads (a whole bank)…", lambda: self.fill_bank(sorted(sel))),
+                      (f"✦ Sounds onto these {len(sel)} pads…", lambda: self.generate_sounds(sorted(sel))), None]
         items += [
             (f"✦ Generate a sound for pad {key}…", lambda: self.design_pad_sound(index)),
+            *([(f"✦ Variation of {pad.name or 'this sound'}…", lambda: self.design_pad_sound(index, vary=True))]
+              if pad.clip is not None else []),
             (f"Replace pad {key} with", [(label, lambda w=what: self.replace_pad(w)) for label, what in (
                 ("The hit at the playhead (selected clip)", "playhead"), ("The selected bars", "bars"),
                 ("The whole selected clip", "clip"), ("An audio file…", "file"),

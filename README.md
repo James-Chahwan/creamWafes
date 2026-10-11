@@ -66,6 +66,13 @@ Every pad is the same kind of thing; nothing is tied to a row.
 - **Ctrl+click** adds/removes pads, **Shift+click** selects a range. With several selected:
   **✦ Make a song from these…**, ✦ Kit / Hooks / Progression onto these, **Chop onto these ▾** (the
   selected clip or a file: kit, at each hit, every beat/half/bar), Play as ▾, Mode ▾, Clear.
+- **✦ Generate…** on a pad: 32 kinds in groups (drums incl. rim/crash/ride · 808/sub/bass · keys, bells,
+  guitar, strings, brass, flute, lead, pad, stab · vocal chop, choir · riser, impact, fx · **loops**: drum,
+  perc, bass, chord, melody, vocal — whole bars at the song's tempo, 1/2/4 bars), genre and mood buttons,
+  Short/Medium/Long, 4 or 8 takes to pick from. **✦ Variation…** remakes the pad's own sound (a little ↔ a
+  lot different). With several pads selected: **✦ Sounds onto these** (a different take on each) and
+  **✦ Fill these pads (a whole bank)** — one vibe → kit, 808, chords (as chord pads in a progression),
+  melody, hook, fx, drum loop, perc, laid out drums-low / chords-on-QWER.
 - **Drop a WAV on a pad** to load it (a chord pad keeps its chord, with the new sound). Right-click a
   pad for the same actions plus Pitch (±1…12). **File → Chop an audio file onto the pads…** too.
 - **● Record pads** plays the song and records your hits and held chords (quantized to 1/16) onto a

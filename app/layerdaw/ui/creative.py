@@ -8,8 +8,9 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout, QGridLayout, QHBoxLayout,
-                               QLabel, QLineEdit, QPushButton, QRadioButton, QSpinBox, QVBoxLayout)
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+                               QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QRadioButton, QSlider,
+                               QSpinBox, QVBoxLayout, QWidget)
 
 from .. import chop, theory
 from ..audio import Note, render_note
@@ -298,38 +299,160 @@ class CreativeMixin:
 
 # --- single-sound design: describe → generate → pick from candidates --------------------------------
 
-class SoundDialog(QDialog):
-    """What sound to make for a pad: a type (kick, 808, keys…) plus your own words."""
+class _Chips(QWidget):
+    """Toggle buttons in rows. ``exclusive``: at most one on (click it again to clear)."""
 
-    def __init__(self, parent, pad_key: str, default_text: str):
-        from ..sounds import SOUND_TYPES, guess_type
+    def __init__(self, items: list[str], selected=(), exclusive: bool = False, columns: int = 6, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(f"New sound for pad {pad_key}")
-        self.setMinimumWidth(460)
+        grid = QGridLayout(self)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(3)
+        self.exclusive = exclusive
+        self.buttons: dict[str, QPushButton] = {}
+        for n, item in enumerate(items):
+            b = QPushButton(item.replace("&", "&&"))  # "R&B", not a keyboard shortcut on B
+            b.setCheckable(True)
+            b.setChecked(item in selected)
+            b.setStyleSheet("QPushButton { padding: 2px 6px; } QPushButton:checked { background: #4f7fd9; color: white; }")
+            b.toggled.connect(lambda on, it=item: self._toggled(it, on))
+            grid.addWidget(b, n // columns, n % columns)
+            self.buttons[item] = b
+
+    def _toggled(self, item: str, on: bool) -> None:
+        if self.exclusive and on:
+            for other, b in self.buttons.items():
+                if other != item and b.isChecked():
+                    b.blockSignals(True)
+                    b.setChecked(False)
+                    b.blockSignals(False)
+
+    def selected(self) -> list[str]:
+        return [item for item, b in self.buttons.items() if b.isChecked()]
+
+
+def _segmented(options: list[tuple[str, str]], current: str) -> tuple[QWidget, dict[str, QPushButton]]:
+    box = QWidget()
+    row = QHBoxLayout(box)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(3)
+    group = QButtonGroup(box)
+    buttons = {}
+    for value, text in options:
+        b = QPushButton(text)
+        b.setCheckable(True)
+        b.setChecked(value == current)
+        b.setStyleSheet("QPushButton:checked { background: #4f7fd9; color: white; }")
+        group.addButton(b)
+        row.addWidget(b)
+        buttons[value] = b
+    row.addStretch(1)
+    return box, buttons
+
+
+class SoundDialog(QDialog):
+    """What sound(s) to make: a kind (kick, 808, chord loop…), your words, genre and mood, how long,
+    how many takes — or a variation of the pad's own sound."""
+
+    def __init__(self, parent, pad_keys, default_text: str, pad=None, prefs: dict | None = None,
+                 vary: bool = False):
+        from ..sounds import GENRES, GROUPS, MOODS, guess_type
+        super().__init__(parent)
+        keys = [pad_keys] if isinstance(pad_keys, str) else list(pad_keys)
+        prefs = prefs or {}
+        self.many = len(keys) > 1
+        self.setWindowTitle(f"New sounds for {len(keys)} pads" if self.many else f"New sound for pad {keys[0]}")
+        self.setMinimumWidth(560)
         self.text = QLineEdit(default_text)
         self.text.setPlaceholderText("e.g. distorted cyberpunk 808, dusty vinyl snare, glassy Rhodes")
         self.kind = QComboBox()
-        self.kind.addItems(list(SOUND_TYPES))
-        self.kind.setCurrentText(guess_type(default_text))
-        self.text.textEdited.connect(lambda t: self.kind.setCurrentText(guess_type(t)))
+        self.kind.setMaxVisibleItems(40)
+        for group, kinds in GROUPS:
+            self.kind.addItem(f"— {group} —", None)
+            self.kind.model().item(self.kind.count() - 1).setEnabled(False)
+            for k in kinds:
+                self.kind.addItem(f"   {k}", k)
+        self.set_kind(guess_type(default_text))
+        self.text.textEdited.connect(lambda t: self.set_kind(guess_type(t)))
         self._kind_touched = False
         self.kind.activated.connect(lambda _i: setattr(self, "_kind_touched", True))
+        self.genre = _Chips(GENRES, [prefs.get("genre", "")], exclusive=True)
+        self.moods = _Chips(MOODS, prefs.get("moods", []))
+        length_box, self.length_buttons = _segmented([("short", "Short"), ("medium", "Medium"), ("long", "Long")],
+                                                     prefs.get("length", "medium"))
+        takes_box, self.takes_buttons = _segmented([("4", "4 takes"), ("8", "8 takes")], str(prefs.get("takes", 4)))
+        self._takes_box = takes_box  # owned here: with several pads it isn't shown (one take per pad)
+        self.vary = QCheckBox()
+        self.how_different = QSlider(Qt.Horizontal)
+        self.how_different.setRange(0, 100)
+        self.how_different.setValue(50)
+        self.how_different.setToolTip("A little: close to the pad's sound · A lot: only loosely like it")
+        has_sound = pad is not None and pad.clip is not None and not self.many
+        if has_sound:
+            self.vary.setText(f"Start from this pad's sound ({pad.name or 'sound'})")
+            self.vary.setChecked(vary)
+            if vary:
+                self.set_kind(guess_type(f"{pad.name} {pad.kind}"))
+        self.vary.toggled.connect(lambda on: self.how_different.setEnabled(on))
+        self.how_different.setEnabled(self.vary.isChecked())
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Ok).setText("Generate")
+        buttons.button(QDialogButtonBox.Ok).setText(f"✦ Generate {len(keys)} sounds" if self.many else "✦ Generate")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         form = QFormLayout(self)
         form.addRow("Describe it", self.text)
         form.addRow("Kind of sound", self.kind)
-        note = QLabel("One sound at a time: the AI makes ~10 s of just this sound, and you pick the best take.")
-        note.setStyleSheet("color: #8a93a0;")
-        form.addRow(note)
+        form.addRow("Genre", self.genre)
+        form.addRow("Mood", self.moods)
+        form.addRow("Length", length_box)
+        if self.many:
+            form.addRow("Takes", QLabel(f"a different one on each pad ({' '.join(keys)})"))
+        else:
+            form.addRow("Takes", takes_box)
+        if has_sound:
+            slider_row = QHBoxLayout()
+            for w in (QLabel("a little"), self.how_different, QLabel("a lot")):
+                slider_row.addWidget(w)
+            form.addRow(self.vary)
+            form.addRow("How different", slider_row)
+        self.note = QLabel()
+        self.note.setStyleSheet("color: #8a93a0;")
+        self.note.setWordWrap(True)
+        form.addRow(self.note)
         form.addRow(buttons)
+        self.kind.currentIndexChanged.connect(lambda _i: self._kind_changed())  # (now that the note exists)
+        self._kind_changed()
+
+    def set_kind(self, kind: str) -> None:
+        i = self.kind.findData(kind)
+        if i >= 0:
+            self.kind.setCurrentIndex(i)
+
+    def sound_type(self) -> str:
+        return self.kind.currentData() or "lead"
+
+    def _kind_changed(self) -> None:
+        from ..sounds import LENGTHS, is_loop
+        loop = is_loop(self.sound_type())
+        for value, b in self.length_buttons.items():
+            b.setText(LENGTHS[value][1 if loop else 0])
+        self.note.setText("Loops are whole bars at the song's tempo and play as loop pads." if loop else
+                          "One sound at a time: the AI makes a take of just this sound and you pick the best.")
+
+    @staticmethod
+    def _picked(buttons: dict) -> str:
+        return next((v for v, b in buttons.items() if b.isChecked()), next(iter(buttons)))
+
+    def spec(self) -> dict:
+        genre = self.genre.selected()
+        return {"text": self.text.text().strip(), "type": self.sound_type(), "genre": genre[0] if genre else "",
+                "moods": self.moods.selected(), "length": self._picked(self.length_buttons),
+                "takes": int(self._picked(self.takes_buttons)), "vary": self.vary.isChecked(),
+                "strength": round(1.0 - 0.7 * self.how_different.value() / 100, 2)}
 
     def accept(self) -> None:
         from ..sounds import guess_type
-        if not self._kind_touched:  # however the text got there (typed, pasted…), read it again
-            self.kind.setCurrentText(guess_type(self.text.text()))
+        if not self._kind_touched and not self.vary.isChecked():  # however the text got there, read it again
+            self.set_kind(guess_type(self.text.text()))
         super().accept()
 
 
@@ -345,15 +468,15 @@ class SoundPicker(QDialog):
         self.setWindowTitle(f"Pick a sound for pad {pad_key}")
         self.choice: int | None = None
         self.slices = [declick(audio[s:e]) for s, e, _ in picks]
-        row = QHBoxLayout()
+        grid = QGridLayout()
         self.buttons = []
-        for i, ((s, e, label), sl) in enumerate(zip(picks, self.slices)):
+        for i, (s, e, label) in enumerate(picks):
             b = QPushButton(f"▶  {label}\n{(e - s) / SR:.2f} s")
             b.setCheckable(True)
             b.setMinimumSize(120, 64)
             b.clicked.connect(lambda _=False, i=i: self._audition(i))
             self.buttons.append(b)
-            row.addWidget(b)
+            grid.addWidget(b, i // 4, i % 4)
         use = QPushButton("Put on pad")
         use.setDefault(True)
         use.clicked.connect(self._use)
@@ -368,7 +491,7 @@ class SoundPicker(QDialog):
         hint = QLabel("Click a candidate to hear it, then Put on pad." if picks else
                       "Nothing clean enough in that take — try ✦ More like this, or describe it differently.")
         layout.addWidget(hint)
-        layout.addLayout(row)
+        layout.addLayout(grid)
         layout.addLayout(actions)
         if picks:
             self._audition(0)
@@ -384,36 +507,149 @@ class SoundPicker(QDialog):
             self.accept()
 
 
-class SoundMixin:
-    """Mixed into MainWindow: single-sound generation for one pad."""
+BANK_PARTS = [("kit", "Drum kit (kick, snare, hats, clap…)"), ("808", "808"), ("chords", "Chords (chord pads)"),
+              ("melody", "Melody (lead)"), ("hook", "Hook (vocal chops)"), ("fx", "FX (riser)"),
+              ("loop", "Drum loop"), ("perc", "Percussion")]
+BANK_TYPES = {"808": "808", "perc": "perc", "loop": "drum loop", "melody": "lead", "hook": "vocal chop",
+              "fx": "riser", "chords": "keys"}
 
-    def design_pad_sound(self, index: int, text: str | None = None, sound_type: str | None = None) -> None:
-        from ..sounds import caption
+
+class BankDialog(QDialog):
+    """Fill several pads in one go from one vibe: kit, 808, chords, melody, hook…"""
+
+    def __init__(self, window, targets: list[int], prefs: dict | None = None):
+        from ..sounds import GENRES, MOODS
+        super().__init__(window)
+        prefs = prefs or {}
+        self.targets = sorted(targets)
+        self.setWindowTitle(f"Fill {len(targets)} pads")
+        self.setMinimumWidth(560)
+        self.text = QLineEdit(prefs.get("bank_text", ""))
+        self.text.setPlaceholderText("the vibe, e.g. cyberpunk night drive, dusty soul, hard UK drill")
+        self.genre = _Chips(GENRES, [prefs.get("genre", "")], exclusive=True)
+        self.moods = _Chips(MOODS, prefs.get("moods", []))
+        self.parts: dict[str, QCheckBox] = {}
+        parts_box = QGridLayout()
+        for n, (part, text) in enumerate(BANK_PARTS):
+            box = QCheckBox(text)
+            box.setChecked(True)
+            box.toggled.connect(lambda _on: self._preview())
+            parts_box.addWidget(box, n // 2, n % 2)
+            self.parts[part] = box
+        self.preview = QLabel()
+        self.preview.setWordWrap(True)
+        self.preview.setStyleSheet("color: #c8ccd4;")
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(f"✦ Fill {len(targets)} pads")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        form = QFormLayout(self)
+        form.addRow("Vibe", self.text)
+        form.addRow("Genre", self.genre)
+        form.addRow("Mood", self.moods)
+        form.addRow("Make", parts_box)
+        form.addRow(self.preview)
+        note = QLabel("Each part is its own generation (one after another, ~10–20 s each). The best take goes on "
+                      "each pad; use ✦ Generate or Replace on a pad afterwards to change just that one.")
+        note.setWordWrap(True)
+        note.setStyleSheet("color: #8a93a0;")
+        form.addRow(note)
+        form.addRow(buttons)
+        self._preview()
+
+    def include(self) -> list[str]:
+        return [p for p, box in self.parts.items() if box.isChecked()]
+
+    def _preview(self) -> None:
+        from ..sounds import plan_bank
+        plan = plan_bank(self.targets, self.include())
+        names = dict(BANK_PARTS)
+        self.preview.setText("  ·  ".join(f"<b>{' '.join(PAD_TO_KEY[i] for i in pads)}</b> {names[p].split(' (')[0]}"
+                                          for p, pads in plan.items()) or "<i>pick something to make</i>")
+
+    def spec(self) -> dict:
+        genre = self.genre.selected()
+        return {"text": self.text.text().strip(), "genre": genre[0] if genre else "", "moods": self.moods.selected(),
+                "include": self.include()}
+
+
+class SoundMixin:
+    """Mixed into MainWindow: generating sounds for pads (one, several, variations, a whole bank)."""
+
+    def _sound_prefs(self) -> dict:
+        return getattr(self, "_prefs", {"genre": "", "moods": [], "length": "medium", "takes": 4})
+
+    def design_pad_sound(self, index: int, text: str | None = None, sound_type: str | None = None,
+                         targets: list[int] | None = None, vary: bool = False) -> None:
+        """✦ Generate for a pad (or ``targets``). With ``text`` given, no dialog (✦ More like this)."""
+        targets = targets or [index]
         if text is None:
-            dlg = SoundDialog(self, PAD_TO_KEY[index], getattr(self, "_last_sound_text", ""))
+            pad = self.project.pads[targets[0]]
+            dlg = SoundDialog(self, [PAD_TO_KEY[i] for i in targets], getattr(self, "_last_sound_text", ""),
+                              pad if len(targets) == 1 else None, self._sound_prefs(), vary=vary)
             accepted = dlg.exec()
-            text, sound_type = dlg.text.text().strip(), dlg.kind.currentText()
+            spec = dlg.spec()
             dlg.deleteLater()
             if not accepted:
                 return
-        self._last_sound_text = text
-        params = self._base_params(caption(sound_type, text), "[Instrumental]", 8, -1)
-        params.update(duration=10.5, instrumental=True)
-        gen = {"mode": "sound", "kind": sound_type, "prompt": text, "sound_type": sound_type, "sound_pad": index}
-        self._submit("text2music", params, gen, name=f"{sound_type} → pad {PAD_TO_KEY[index]}", mute=[], pads=[index])
+            self._last_sound_text = spec["text"]
+            self._prefs = {**self._sound_prefs(), **{k: spec[k] for k in ("genre", "moods", "length", "takes")}}
+        else:
+            spec = {**self._sound_prefs(), "text": text, "type": sound_type, "vary": False, "strength": 0.6}
+        self._submit_sound(spec, targets)
+
+    def generate_sounds(self, targets: list[int] | None = None) -> None:
+        """Multi-pad ✦ Sounds onto these: one dialog, a different take on each pad."""
+        targets = sorted(targets or self.selected_pads)
+        self.design_pad_sound(targets[0], targets=targets)
+
+    def _submit_sound(self, spec: dict, targets: list[int], auto: bool = False, extra: dict | None = None) -> None:
+        from ..sounds import caption, take_seconds, variation_source
+        st = spec["type"]
+        takes = max(int(spec.get("takes", 4)), len(targets))
+        cap = caption(st, spec.get("text", ""), spec.get("genre", ""), spec.get("moods", ()), spec.get("length", "medium"))
+        params = self._base_params(cap, "[Instrumental]", 8, -1)
+        params["instrumental"] = True
+        gen = {"mode": "sound", "kind": st, "prompt": spec.get("text", ""), "sound_type": st,
+               "sound_pad": targets[0], "targets": list(targets), "spec": spec,
+               "auto": auto or len(targets) > 1, **(extra or {})}
+        pad = self.project.pads[targets[0]]
+        keys = " ".join(PAD_TO_KEY[i] for i in targets)
+        if spec.get("vary") and pad.clip is not None:
+            src = variation_source(pad.buffer(), st, self.project.beat_seconds)
+            wav = self.project.write_wav(src, "variation-src")
+            params.update(src_audio=str(wav), audio_cover_strength=float(spec.get("strength", 0.6)))
+            self._submit("cover", params, gen, name=f"variation of {pad.name or st} → pad {keys}", mute=[],
+                         pads=targets)
+            return
+        params["duration"] = take_seconds(st, takes, spec.get("length", "medium"), self.project.bar_seconds)
+        shown = gen.get("chords") or targets  # bank chords: one take, shown coming on every chord pad
+        self._submit("text2music", params, gen, name=f"{st} → pad {keys}", mute=[], pads=shown)
 
     def _sound_ready(self, path: Path, gen: dict) -> None:
         from ..sounds import SOUND_TYPES, candidates
         audio = load_audio(path)
-        index, sound_type = gen["sound_pad"], gen["sound_type"]
-        picks = candidates(audio, sound_type, self.project.beat_seconds, self.project.bar_seconds)
+        spec = gen.get("spec") or {"length": "medium", "takes": 4}
+        targets = gen.get("targets") or [gen["sound_pad"]]
+        sound_type = gen["sound_type"]
+        count = max(int(spec.get("takes", 4)), len(targets))
+        picks = candidates(audio, sound_type, self.project.beat_seconds, self.project.bar_seconds, count,
+                           spec.get("length", "medium"))
         log.info("sound %s → %d candidates %s", sound_type, len(picks), [p[2] for p in picks])
+        if gen.get("chords"):
+            self._chords_from_take(path, picks, gen["chords"], spec)
+            return
+        if gen.get("auto"):
+            self._picks_onto_pads(path, picks, targets, sound_type)
+            return
+        index = targets[0]
         picker = SoundPicker(self, audio, picks, PAD_TO_KEY[index])
         result = picker.exec()
         picker.deleteLater()
         self.player._cut.append(("audition",))
         if result == SoundPicker.MORE:
-            self.design_pad_sound(index, gen["prompt"], sound_type)
+            self._submit_sound(spec if gen.get("spec") else {**self._sound_prefs(), "text": gen["prompt"],
+                                                              "type": sound_type}, targets)
             return
         if result != QDialog.Accepted or picker.choice is None:
             return
@@ -425,7 +661,79 @@ class SoundMixin:
             pad.mode = mode
             self.refresh_pads()
 
+    def _picks_onto_pads(self, path: Path, picks: list, targets: list[int], sound_type: str) -> None:
+        """A different take on each pad, as one undo step."""
+        from ..sounds import SOUND_TYPES
+        if not picks:
+            self.engine_label.setText(f"Nothing clean enough came out for {sound_type} — try again or describe it "
+                                      "differently")
+            return
+        _caps, _how, kind, mode = SOUND_TYPES[sound_type]
+        self._checkpoint(f"{sound_type} onto pads")
+        filled = []
+        for i, (s, e, label) in zip(targets, picks):
+            pad = self.project.pads[i]
+            pad.clear()
+            pad.clip = Clip(path, 0.0, s / SR, (e - s) / SR)
+            pad.name, pad.kind, pad.mode = label, kind, mode
+            filled.append(i)
+        self.pads_dock.show()
+        self.refresh_pads()
+        self._changed()
+        missing = [PAD_TO_KEY[i] for i in targets[len(filled):]]
+        self.engine_label.setText(f"{sound_type} on pads {' '.join(PAD_TO_KEY[i] for i in filled)}"
+                                  + (f" — only {len(filled)} good takes, {' '.join(missing)} left as they were"
+                                     if missing else ""))
+        log.info("%s → pads %s", sound_type, filled)
 
+    def _chords_from_take(self, path: Path, picks: list, chord_pads: list[int], spec: dict) -> None:
+        """Bank chords: the best keys take becomes the sound of every chord pad, in a progression."""
+        if not picks:
+            self.engine_label.setText("No clean keys sound came out for the chords — try ✦ Generate on those pads")
+            return
+        s, e, label = picks[0]
+        prog = theory.write_progression(self.project.key, " ".join([*spec.get("moods", []), spec.get("genre", "")]))
+        slots = theory.pad_slots(prog["degrees"])
+        self._checkpoint("Chords onto pads")
+        for n, i in enumerate(chord_pads):
+            pad = self.project.pads[i]
+            pad.clear()
+            pad.clip = Clip(path, 0.0, s / SR, (e - s) / SR)
+            pad.name, pad.kind, pad.mode = label, "keys", "hold"
+            pad.play, pad.degree, pad.flavour = "chord", slots[n % len(slots)], prog["flavour"]
+        self.pads_dock.show()
+        self.refresh_pads()
+        self._changed()
+        names = [self.pad_label(self.project.pads[i])[0] for i in chord_pads]
+        self.engine_label.setText(f"Chord pads {' '.join(PAD_TO_KEY[i] for i in chord_pads)}: {' · '.join(names)}")
+
+    # --- a whole bank ---------------------------------------------------------------------------
+    def fill_bank(self, targets: list[int] | None = None, spec: dict | None = None) -> dict:
+        """One vibe → kit, 808, chords, melody, hook, fx… across the selected pads. Returns the plan."""
+        from ..sounds import plan_bank
+        targets = sorted(targets or self.selected_pads)
+        if spec is None:
+            dlg = BankDialog(self, targets, {**self._sound_prefs(), "bank_text": getattr(self, "_last_bank", "")})
+            accepted = dlg.exec()
+            spec = dlg.spec()
+            dlg.deleteLater()
+            if not accepted:
+                return {}
+            self._last_bank = spec["text"]
+            self._prefs = {**self._sound_prefs(), "genre": spec["genre"], "moods": spec["moods"]}
+        plan = plan_bank(targets, spec["include"])
+        style = {"text": spec["text"], "genre": spec["genre"], "moods": spec["moods"], "length": "medium", "takes": 4}
+        for part, pads in plan.items():
+            if part == "kit":
+                words = ", ".join(x for x in (spec["text"], " ".join([*spec["moods"], spec["genre"]])) if x)
+                self._submit_kit(words or "punchy drum kit", pads)
+            elif part == "chords":
+                self._submit_sound({**style, "type": BANK_TYPES[part]}, pads[:1], auto=True, extra={"chords": pads})
+            else:
+                self._submit_sound({**style, "type": BANK_TYPES[part]}, pads, auto=True)
+        log.info("bank %s → %s", spec, plan)
+        self.engine_label.setText(f"Filling {len(targets)} pads: {', '.join(plan)} (one after another)")
+        return plan
 # --- a song from the selected pads (arranged from exactly those sounds) ---------------------------
 
 ROLE_TEXT = {"kick": "kick pattern", "snare": "snare pattern", "clap": "claps", "hat": "hi-hat pattern",
