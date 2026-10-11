@@ -1,10 +1,13 @@
-"""Entry point: ``uv run creamwafes [project-folder]``."""
+"""Entry point: ``uv run creamwafes [song-folder]``."""
 
 import sys
 from pathlib import Path
 
-from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPalette, QPixmap
+from PySide6.QtWidgets import QApplication, QSplashScreen
+
+from . import ASSETS, __version__
 
 from .diag import Inspector, log, setup_logging
 from .paths import DATA_DIR, OLD_DATA_DIR, move_old_songs
@@ -24,6 +27,33 @@ def dark_palette() -> QPalette:
     return pal
 
 
+def app_icon() -> QIcon:
+    icon = QIcon()
+    for size in (128, 256, 512):
+        icon.addFile(str(ASSETS / f"app-icon-{size}.png"))
+    return icon
+
+
+def splash() -> QSplashScreen | None:
+    """The startup splash, with this version written where the artwork leaves room for it."""
+    pixmap = QPixmap(str(ASSETS / "splash-960x600.png"))
+    if pixmap.isNull():
+        return None
+    p = QPainter(pixmap)
+    p.fillRect(800, 52, 110, 28, QColor("#1a1210"))  # the "[VERSION]" placeholder
+    font = QFont("DM Mono")
+    font.setStyleHint(QFont.Monospace)
+    font.setPixelSize(15)
+    p.setFont(font)
+    p.setPen(QColor("#cdbba4"))
+    p.drawText(700, 52, 195, 28, Qt.AlignRight | Qt.AlignVCenter, f"v{__version__}")
+    p.end()
+    screen = QSplashScreen(pixmap)
+    screen.show()
+    QApplication.processEvents()
+    return screen
+
+
 def main() -> None:
     moved = move_old_songs()
     setup_logging()
@@ -31,6 +61,10 @@ def main() -> None:
         log.info("moved songs from %s to %s (the app's new name)", OLD_DATA_DIR, DATA_DIR)
     app = QApplication(sys.argv)
     app.setApplicationName("creamWafes")
+    app.setApplicationVersion(__version__)
+    app.setDesktopFileName("creamwafes")  # Wayland/GNOME: the dock uses creamwafes.desktop's icon
+    app.setWindowIcon(app_icon())
+    shown = splash()
     app.setStyle("Fusion")
     app.setPalette(dark_palette())
     project = None
@@ -39,6 +73,8 @@ def main() -> None:
     window = MainWindow(project)
     window.inspector = Inspector(window)
     window.show()
+    if shown is not None:
+        shown.finish(window)
     sys.exit(app.exec())
 
 

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=creamWafes
+GenericName=Digital audio workstation
+Comment=Make sounds with local AI, play them on pads, build songs from them
+Exec=@EXEC@ %f
+Icon=creamwafes
+Terminal=false
+Categories=AudioVideo;Audio;Music;Midi;
+Keywords=DAW;music;pads;sampler;beats;AI;
+StartupWMClass=creamwafes

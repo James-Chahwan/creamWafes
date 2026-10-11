@@ -1,4 +1,9 @@
-# creamWafes
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/readme-banner-dark-1600x400.png">
+    <img alt="creamWafes — digital audio workstation" src="docs/brand/readme-banner-light-1600x400.png">
+  </picture>
+</p>
 
 **Make sounds with AI, play them on pads, build songs from them.** A native desktop mini-DAW
 (Qt) where a local AI model ([ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5), MIT code and
@@ -78,6 +83,9 @@ cd app && uv sync            # the app
 uv run creamwafes            # start it (or: uv run creamwafes ~/Music/creamWafes/<song>)
 ```
 
+Optional, on Linux: `tools/install_desktop.sh` puts creamWafes in your app menu and dock with its icon
+(`--remove` takes it out again).
+
 The first start of the engine compiles some kernels and takes a few minutes; the status bar says
 **Engine ready** when the AI buttons work. Songs, exports and logs live in `<your Music folder>/creamWafes`.
 
@@ -114,7 +122,9 @@ The first start of the engine compiles some kernels and takes a few minutes; the
 ```
 app/       the desktop app (PySide6) — package creamwafes, tests in app/tests
 engine/    ACE-Step 1.5 checkout + models + its own environment (not in git; tools/setup_engine.sh)
-tools/     setup_engine.sh, test.sh, creamwafes-inspect.py, benchmarks
+tools/     setup_engine.sh, install_desktop.sh, test.sh, creamwafes-inspect.py, benchmarks
+packaging/ the Linux desktop entry
+docs/      screenshot; docs/brand has the logo, icons, banners and palette
 ```
 
 ```bash
@@ -123,6 +133,11 @@ tools/test.sh    # every end-to-end test: offscreen, fake engine, real audio thr
 
 `tools/creamwafes-inspect.py state | screenshot [path] | log [n] | restart` talks to the running app
 over a local socket only your user can open (handy for debugging what someone sees).
+
+## Releases
+
+Releases are numbered like an album in progress: **v0.1, v0.2, …**, and each one comes with a song made
+in that version, attached to the release. When the album is finished, the version goes to **v1.1**.
 
 ## Credits
 

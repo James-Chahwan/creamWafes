@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Wafer cube mark">
+<polygon points="256,54.16 456.92,170.16 456.92,341.84 256,457.84 55.08,341.84 55.08,170.16" fill="#241713" stroke="#241713" stroke-width="16.24" stroke-linejoin="round"/>
+<polygon points="256,63.44 340.39,112.16 256,160.88 171.61,112.16" fill="#6E4B3E" stroke="#6E4B3E" stroke-width="11.6" stroke-linejoin="round"/>
+<polygon points="155.54,121.44 239.93,170.16 155.54,218.88 71.16,170.16" fill="#6E4B3E" stroke="#6E4B3E" stroke-width="11.6" stroke-linejoin="round"/>
+<polygon points="356.46,121.44 440.84,170.16 356.46,218.88 272.07,170.16" fill="#F6ECCD" stroke="#F6ECCD" stroke-width="11.6" stroke-linejoin="round"/>
+<polygon points="256,179.44 340.39,228.16 256,276.88 171.61,228.16" fill="#6E4B3E" stroke="#6E4B3E" stroke-width="11.6" stroke-linejoin="round"/>
+<polygon points="63.12,297.39 247.96,404.11 247.96,443.92 63.12,337.2" fill="#503730" stroke="#503730" stroke-width="11.6" stroke-linejoin="round"/>
+<polygon points="264.04,404.11 448.88,297.39 448.88,337.2 264.04,443.92" fill="#39261F" stroke="#39261F" stroke-width="11.6" stroke-linejoin="round"/>
+<polygon points="63.12,242.45 247.96,349.17 247.96,385.55 63.12,278.83" fill="#F4E8C6" stroke="#F4E8C6" stroke-width="11.6" stroke-linejoin="round"/>
+<polygon points="264.04,349.17 448.88,242.45 448.88,278.83 264.04,385.55" fill="#DCCDA3" stroke="#DCCDA3" stroke-width="11.6" stroke-linejoin="round"/>
+<polygon points="63.12,184.08 247.96,290.8 247.96,330.61 63.12,223.89" fill="#503730" stroke="#503730" stroke-width="11.6" stroke-linejoin="round"/>
+<polygon points="264.04,290.8 448.88,184.08 448.88,223.89 264.04,330.61" fill="#39261F" stroke="#39261F" stroke-width="11.6" stroke-linejoin="round"/>
+</svg>

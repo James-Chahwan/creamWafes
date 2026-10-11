@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from PySide6.QtCore import QEvent, Qt, QTimer, QUrl
-from PySide6.QtGui import QAction, QDesktopServices, QKeySequence
+from PySide6.QtGui import QAction, QDesktopServices, QKeySequence, QPixmap
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QComboBox, QDockWidget, QFileDialog, QGridLayout,
                                QInputDialog, QLabel, QLineEdit, QMainWindow, QMessageBox, QPlainTextEdit,
                                QScrollArea, QSizePolicy, QSpinBox, QToolBar, QWidget)
@@ -200,6 +200,7 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         gen.addAction(self.a_cancel)
         help_menu = bar.addMenu("&Help")
         help_menu.addAction(self._act("Keyboard && mouse…", self.show_shortcuts, "F1"))
+        help_menu.addAction(self._act("About creamWafes…", self.show_about))
 
     def _build_toolbar(self) -> None:
         bar = QToolBar("Transport")
@@ -686,6 +687,20 @@ class MainWindow(EditMixin, GenerateMixin, PadsMixin, CreativeMixin, SoundMixin,
         box.exec()
         if box.clickedButton() is open_btn:
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(dest)))
+
+    def show_about(self) -> None:
+        from .. import ASSETS, __version__
+        box = QMessageBox(self)
+        box.setWindowTitle("About creamWafes")
+        box.setIconPixmap(QPixmap(str(ASSETS / "app-icon-128.png")))
+        box.setTextFormat(Qt.RichText)
+        box.setText(f"<h3>creamWafes v{__version__}</h3>"
+                    "<p>Make sounds with local AI, play them on pads, build songs from them.</p>"
+                    "<p>AI by <a href='https://github.com/ace-step/ACE-Step-1.5'>ACE-Step 1.5</a> (MIT) and "
+                    "<a href='https://github.com/facebookresearch/demucs'>Demucs</a> (MIT), running on this machine.</p>"
+                    "<p><a href='https://github.com/James-Chahwan/creamWafes'>github.com/James-Chahwan/creamWafes</a>"
+                    " · MIT licence · © 2026 James Chahwan</p>")
+        box.exec()
 
     def show_shortcuts(self) -> None:
         box = QMessageBox(QMessageBox.NoIcon, "Keyboard & mouse", SHORTCUTS, parent=self)
